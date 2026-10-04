@@ -165,7 +165,8 @@ h1 span { display: block; margin-top: 12px; font-size: .67em; letter-spacing: .5
 .loading h2 { font: 600 66px/.97 'Barlow Condensed', 'Arial Narrow', sans-serif; letter-spacing: 1px; margin: 17px 0 29px; }
 .loading-track { height: 2px; background: #c4ddcc24; overflow: hidden; }
 #loading-progress { width: 3%; height: 100%; background: var(--mint); transition: width .25s ease; }
-#loading-phase { margin-top: 12px; color: #bdcfc3; font-size: 10px; line-height: 1.5; min-height: 30px; overflow-wrap: anywhere; }
+.loading-label { margin: 18px 0 0; color: var(--cream); font-size: 12px; font-weight: 600; letter-spacing: 1px; }
+#loading-phase { margin-top: 6px; color: #bdcfc3; font-size: 10px; line-height: 1.5; min-height: 30px; overflow-wrap: anywhere; }
 .pause-notice { position: absolute; z-index: 11; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: calc(100% - 40px); display: grid; gap: 8px; padding: 18px 24px; border: 1px solid #b8ead465; border-radius: 3px; background: #172d2ef5; text-align: center; pointer-events: none; box-shadow: 0 12px 45px #071d2940; }
 .pause-notice strong { color: var(--mint); font-size: 11px; letter-spacing: 1.8px; }
 .pause-notice span { color: var(--muted); font-size: 11px; line-height: 1.5; }
@@ -191,7 +192,10 @@ h1 span { display: block; margin-top: 12px; font-size: .67em; letter-spacing: .5
 /* Keep the film's subtitles and title cards intact, including its native letterbox. */
 .story-video { position: absolute; inset: 0; z-index: 9; background: #050908; }
 .story-video video { display: block; width: 100%; height: 100%; object-fit: contain; }
-.film-toolbar { position: absolute; inset: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 28px 42px; background: linear-gradient(#000b, transparent); }
+.film-header { position: absolute; inset: 0 0 auto; padding-bottom: 16px; background: linear-gradient(#030806dc, #03080680 65%, transparent); }
+.film-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 28px 16px; }
+.film-caption { position: absolute; inset: auto 0 0; padding: 48px 28px max(26px, env(safe-area-inset-bottom)); background: linear-gradient(transparent, #030806b3); pointer-events: none; }
+.film-tribute { max-width: 620px; margin: 0; color: #f3d58f; font: 400 clamp(18px, 1.8vw, 23px)/1.45 Georgia, 'Times New Roman', serif; text-align: left; text-wrap: balance; text-shadow: 0 2px 12px #000, 0 1px 3px #000; }
 #film-title { color: var(--cream); font-size: 11px; letter-spacing: 2px; white-space: nowrap; }
 #film-title span { color: var(--muted); font-size: 9px; }
 .film-actions { display: flex; align-items: center; gap: 9px; }
@@ -201,7 +205,9 @@ h1 span { display: block; margin-top: 12px; font-size: .67em; letter-spacing: .5
 .film-skip kbd { margin-left: 10px; font-size: 8px; min-height: 18px; }
 .film-notice { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; padding: 17px 22px; background: #0b1b1be8; color: var(--cream); font-size: 12px; line-height: 1.6; text-align: center; }
 @media (max-width: 700px) {
-  .film-toolbar { padding: 14px 15px 30px; gap: 12px; flex-wrap: wrap; }
+  .film-header { padding-bottom: 12px; }
+  .film-caption { padding: 36px 18px max(20px, env(safe-area-inset-bottom)); }
+  .film-toolbar { padding: 14px 15px 12px; gap: 12px; flex-wrap: wrap; }
   #film-title { font-size: 9px; } #film-title span { font-size: 8px; }
   .film-actions { margin-left: auto; gap: 5px; } .film-button { padding: 10px; font-size: 8px; }
   .film-skip kbd { display: none; }

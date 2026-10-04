@@ -1,3 +1,13 @@
+/** Short original tribute lines, paced against the film's own playback clock. */
+const INTRO_CAPTIONS = [
+  'When the waters rose, Kerala stood together.',
+  'Roads disappeared beneath the rising water.',
+  'Fishermen answered the call.',
+  'Every helping hand made a difference.',
+  'Take the helm. Bring them home.',
+] as const;
+const CAPTION_SECONDS = 9;
+
 /** Gesture-started story film. Mission state and timing stay in Game. */
 export class IntroVideo {
   private readonly overlay: HTMLElement;
@@ -5,6 +15,7 @@ export class IntroVideo {
   private readonly playback: HTMLButtonElement;
   private readonly sound: HTMLButtonElement;
   private readonly notice: HTMLElement;
+  private readonly caption: HTMLElement;
   private active = false;
   private generation = 0;
   private suspended = false;
@@ -20,13 +31,15 @@ export class IntroVideo {
     this.overlay.setAttribute('aria-labelledby', 'film-title');
     this.overlay.innerHTML = `
       <video id="intro-film" playsinline preload="none" aria-label="Kerala flood introduction"></video>
-      <div class="film-toolbar"><span id="film-title">KERALA <span>· AUGUST 2018</span></span>
+      <div class="film-header"><div class="film-toolbar"><span id="film-title">KERALA <span>· AUGUST 2018</span></span>
         <div class="film-actions">
           <button id="film-audio" class="film-button">AUDIO: ON</button>
           <button id="film-playback" class="film-button">PAUSE</button>
           <button id="skip-video-button" class="film-button film-skip">SKIP INTRO <kbd>SPACE</kbd></button>
         </div>
       </div>
+      </div>
+      <div class="film-caption"><p class="film-tribute">${INTRO_CAPTIONS[0]}</p></div>
       <p id="film-notice" class="film-notice" role="status" hidden>Loading introduction…</p>`;
     container.append(this.overlay);
     this.video = this.overlay.querySelector('video')!;
@@ -34,6 +47,9 @@ export class IntroVideo {
     this.playback = this.overlay.querySelector('#film-playback')!;
     this.sound = this.overlay.querySelector('#film-audio')!;
     this.notice = this.overlay.querySelector('#film-notice')!;
+    this.caption = this.overlay.querySelector('.film-tribute')!;
+    this.video.addEventListener('timeupdate', () => this.updateCaption());
+    this.video.addEventListener('seeked', () => this.updateCaption());
     this.overlay.querySelector('#skip-video-button')!.addEventListener('click', () => this.finish());
     this.sound.addEventListener('click', onToggleAudio);
     this.playback.addEventListener('click', () => {
@@ -58,6 +74,12 @@ export class IntroVideo {
     this.setAudio(audioEnabled);
     this.overlay.querySelector<HTMLButtonElement>('#skip-video-button')!.focus();
     void this.play();
+  }
+
+  private updateCaption() {
+    const index = Math.min(INTRO_CAPTIONS.length - 1, Math.max(0, Math.floor(this.video.currentTime / CAPTION_SECONDS)));
+    const line = INTRO_CAPTIONS[index];
+    if (this.caption.textContent !== line) this.caption.textContent = line;
   }
 
   setAudio(enabled: boolean) {
@@ -106,6 +128,7 @@ export class IntroVideo {
     this.suspended = false; this.resumeAfterSuspension = false;
     this.video.pause();
     this.video.currentTime = 0;
+    this.updateCaption();
     this.overlay.hidden = true;
   }
 
