@@ -41,7 +41,7 @@ export class Rain {
   }
 
   update(dt: number, center: Vector3) {
-    this.mesh.position.set(center.x, 0, center.z);
+    this.mesh.position.set(center.x, Math.max(0, center.y - 8), center.z);
     for (let i = 0; i < this.activeCount; i++) {
       const offset = i * 6;
       this.positions[offset] -= dt * 3.4;

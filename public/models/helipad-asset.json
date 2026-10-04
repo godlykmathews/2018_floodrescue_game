@@ -1,0 +1,21 @@
+{
+  "source": "models/brutalist_building.glb",
+  "derived": "public/models/flood-brutalist-building.glb",
+  "sourceBytes": 11728356,
+  "derivedBytes": 1287628,
+  "sourceTriangles": 108368,
+  "derivedTriangles": 12458,
+  "changes": [
+    "Retained the original building mesh without simplifying its geometry.",
+    "Removed separate decorative plants and rocky ground to fit the flooded village.",
+    "Baked source node transforms and centered the building with its base at zero.",
+    "Removed unused materials and images; capped retained textures at 1024 pixels using WebP."
+  ],
+  "sourceRoofHeight": 12.82615,
+  "sourceParapetHeight": 13.121202,
+  "sourceBuildingDimensions": [12.199999809265137, 13.12120282997924, 23.103093143711817],
+  "runtimeLength": 20,
+  "runtimeBasePosition": [-43, -1.1, 39],
+  "runtimeLandingPosition": [-43, 10.05, 34.280678],
+  "originalPreserved": true
+}

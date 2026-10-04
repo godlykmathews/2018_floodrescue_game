@@ -7,7 +7,8 @@ export interface HUDState {
   passengers: number; total: number; safe: number; remaining: number;
   integrity: number; time: number; trips: number; failed: boolean; targetIsCamp: boolean;
   kits?: number; coins?: number; donated?: number; treated?: number; injured?: number;
-  targetLabel?: string; targetKind?: 'survivor' | 'camp' | 'kit'; notice?: string;
+  targetLabel?: string; targetKind?: 'survivor' | 'camp' | 'kit' | 'helipad'; notice?: string;
+  vehicle?: 'boat' | 'helicopter'; altitude?: number; vehicleHint?: string;
 }
 
 export interface UIActions {
@@ -37,16 +38,17 @@ export class UI {
       <div id="game-hud" class="game-hud hidden">
         <header class="top">
           <div class="mission-objective"><small>OBJECTIVE</small><p id="objective">Rescue remaining survivors</p><div class="survivor-summary"><strong id="remaining-count">6</strong><span>REMAINING</span><i></i><span id="safe-count">0 / 6 SAFE</span></div><div id="camp-support" class="camp-support hidden">CAMP SUPPORT <strong id="donated-count">0</strong> COINS</div></div>
-          <div class="telemetry"><div class="speed-readout"><span id="speed">0</span><small>KM/H</small></div><div class="passenger-count"><div id="seat-dots" aria-hidden="true"><i></i><i></i><i></i></div><strong id="rescued-count">0 / 3</strong><small>PASSENGERS</small></div><div class="integrity"><span>BOAT</span><div class="integrity-track"><i id="integrity-bar"></i></div><span id="integrity-value">100%</span></div><div id="supply-count" class="supply-count hidden" aria-label="Collected supplies"><span class="kit-count"><i aria-hidden="true">+</i><strong id="kit-count">0</strong><small>KITS</small></span><span class="coin-count"><i aria-hidden="true">♥</i><strong id="coin-count">0</strong><small>COINS</small></span></div></div>
+          <div class="telemetry"><div id="vehicle-label" class="vehicle-label hidden">HELICOPTER</div><div class="speed-readout"><span id="speed">0</span><small>KM/H</small></div><div id="flight-altitude" class="flight-altitude hidden"><strong id="altitude">0</strong><span>M ALTITUDE</span></div><div id="passenger-readout" class="passenger-count"><div id="seat-dots" aria-hidden="true"><i></i><i></i><i></i></div><strong id="rescued-count">0 / 3</strong><small>PASSENGERS</small></div><div id="boat-integrity" class="integrity"><span>BOAT</span><div class="integrity-track"><i id="integrity-bar"></i></div><span id="integrity-value">100%</span></div><div id="supply-count" class="supply-count hidden" aria-label="Collected supplies"><span class="kit-count"><i aria-hidden="true">+</i><strong id="kit-count">0</strong><small>KITS</small></span><span class="coin-count"><i aria-hidden="true">♥</i><strong id="coin-count">0</strong><small>COINS</small></span></div></div>
         </header>
         <div id="world-target" class="world-target"><div class="target-glyph">!</div><div class="target-label"><span id="target-name">SURVIVORS</span><span id="target-distance"></span></div></div>
         <div id="aid-notice" class="aid-notice hidden" role="status" aria-live="polite"></div>
+        <div id="flight-controls" class="flight-controls hidden"></div>
         <div id="context" class="context hidden"><kbd id="interaction-key" class="hidden">E</kbd><span id="context-message"></span></div>
       </div>
       <section id="main-menu" class="menu-screen" aria-label="Main menu">
         <div id="menu-home" class="menu-home"><div class="menu-kicker"><span class="status-dot"></span> A RESCUE MISSION</div><h1>KERALA<span>FLOOD RESCUE</span></h1><div class="menu-date">AUGUST 2018</div><p class="menu-quote">The roads are gone.<br>The water is still rising.<br>People are waiting.</p><div class="home-actions"><button id="start-button" class="button primary">START RESCUE <span aria-hidden="true">↗</span></button><button id="level-select-button" class="button quiet">LEVEL SELECT <span aria-hidden="true">01 — 03</span></button><button id="how-to-button" class="button quiet">HOW TO PLAY <span aria-hidden="true">+</span></button><button class="button quiet audio-button">AUDIO: ON <span aria-hidden="true">♪</span></button></div></div>
         <div id="menu-levels" class="menu-panel hidden"><div class="panel-heading"><div><small>CHOOSE YOUR MISSION</small><h2>LEVEL SELECT</h2></div><button class="back-button" data-back aria-label="Back to main menu">← BACK</button></div><div id="level-options" class="level-options" role="group" aria-label="Rescue levels"></div><div class="level-footer"><p id="selected-level-description"></p><button id="level-start-button" class="button primary">START RESCUE <span aria-hidden="true">↗</span></button></div></div>
-        <div id="menu-help" class="menu-panel help-panel hidden"><div class="panel-heading"><div><small>TAKE THE HELM</small><h2>HOW TO PLAY</h2></div><button class="back-button" data-back aria-label="Back to main menu">← BACK</button></div><div class="help-columns"><dl class="control-list"><div><dt><kbd>W</kbd> / <kbd>↑</kbd></dt><dd>Accelerate</dd></div><div><dt><kbd>S</kbd> / <kbd>↓</kbd></dt><dd>Reverse</dd></div><div><dt><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd></dt><dd>Steer</dd></div><div><dt><kbd>SPACE</kbd></dt><dd>Brake</dd></div><div><dt><kbd>E</kbd></dt><dd>Rescue / interact</dd></div><div><dt><kbd>C</kbd></dt><dd>Camera</dd></div><div><dt><kbd>R</kbd></dt><dd>Restart level</dd></div><div><dt><kbd>ESC</kbd></dt><dd>Pause</dd></div></dl><div class="rescue-guide"><small>BRING EVERYONE HOME</small><ol><li><strong>Find the amber markers.</strong><span>Approach survivors slowly and stop near their rescue point.</span></li><li><strong>Collect aid along the way.</strong><span>Drive over floating kits and heart-shaped coins. Injured survivors need one kit: press E to treat, then E again to rescue.</span></li><li><strong>Make room for three.</strong><span>Your boat carries a driver and up to three survivors per trip.</span></li><li><strong>Return to the relief camp.</strong><span>Stop by the mint marker and press E to unload passengers and donate collected coins to camp.</span></li><li><strong>Head out again.</strong><span>Bring everyone to safety. Watch for drifting debris and submerged obstacles.</span></li></ol></div></div></div>
+        <div id="menu-help" class="menu-panel help-panel hidden"><div class="panel-heading"><div><small>TAKE THE HELM</small><h2>HOW TO PLAY</h2></div><button class="back-button" data-back aria-label="Back to main menu">← BACK</button></div><div class="help-columns"><dl class="control-list"><div><dt><kbd>W</kbd> / <kbd>↑</kbd></dt><dd>Accelerate</dd></div><div><dt><kbd>S</kbd> / <kbd>↓</kbd></dt><dd>Reverse</dd></div><div><dt><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd></dt><dd>Steer</dd></div><div><dt><kbd>SPACE</kbd></dt><dd>Brake</dd></div><div><dt><kbd>E</kbd></dt><dd>Rescue / interact</dd></div><div><dt><kbd>C</kbd></dt><dd>Camera</dd></div><div><dt><kbd>R</kbd></dt><dd>Restart level</dd></div><div><dt><kbd>ESC</kbd></dt><dd>Pause</dd></div></dl><div class="rescue-guide"><small>BRING EVERYONE HOME</small><ol><li><strong>Find the amber markers.</strong><span>Approach survivors slowly and stop near their rescue point.</span></li><li><strong>Collect aid along the way.</strong><span>Drive over floating kits and heart-shaped coins. Injured survivors need one kit: press E to treat, then E again to rescue.</span></li><li><strong>Make room for three.</strong><span>Your boat carries a driver and up to three survivors per trip.</span></li><li><strong>Return to the relief camp.</strong><span>Stop by the mint marker and press E to unload passengers and donate collected coins to camp.</span></li><li><strong>Head out again.</strong><span>Bring everyone to safety. Watch for drifting debris and submerged obstacles.</span></li></ol></div></div><section class="flight-guide" aria-labelledby="flight-guide-title"><div><small>OPTIONAL AIR RECONNAISSANCE</small><h3 id="flight-guide-title">THE ROOFTOP HELIPAD</h3><p>Stop an empty boat beside the brutalist tower and press <kbd>E</kbd> to board the helicopter on its roof. Use the boat to rescue people.</p><p>To switch back, descend gently onto the helipad centre, stop, and press <kbd>E</kbd>. Your boat stays at the dock.</p></div><dl class="control-list flight-control-list"><div><dt><kbd>W</kbd> / <kbd>S</kbd></dt><dd>Fly forward / back</dd></div><div><dt><kbd>A</kbd> / <kbd>D</kbd></dt><dd>Turn</dd></div><div><dt><kbd>SPACE</kbd> / <kbd>SHIFT</kbd></dt><dd>Climb / descend</dd></div><div><dt><kbd>Q</kbd></dt><dd>Hover / brake</dd></div></dl></section></div>
       </section>
       <section id="level-intro" class="overlay intro-screen hidden" role="dialog" aria-modal="true" aria-labelledby="intro-title"><div class="intro-card"><small>KERALA — AUGUST 2018</small><div id="intro-number" class="intro-number">LEVEL 01</div><h2 id="intro-title">THE FIRST CALL</h2><p id="intro-briefing"></p><div class="intro-task"><span id="intro-survivors">CAPACITY 3 · 3 PEOPLE</span></div><div class="intro-rule"></div><button id="skip-intro-button" class="back-button"><kbd>SPACE</kbd> TO SKIP</button></div></section>
       <section id="pause-menu" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pause-heading"><div class="pause-card"><small>TAKE A BREATH</small><h2 id="pause-heading">PAUSED</h2><div class="stack-actions"><button id="resume-button" class="button primary">RESUME <span aria-hidden="true">↗</span></button><button id="pause-restart-button" class="button secondary">RESTART LEVEL</button><button class="button secondary audio-button">AUDIO: ON</button><button id="pause-main-button" class="button secondary">MAIN MENU</button></div></div></section>
@@ -121,7 +123,7 @@ export class UI {
     if (level && this.selectedLevel !== level.id) this.selectLevel(level.id);
     const changed = screen !== this.screen;
     this.screen = screen;
-    const playing = ['PLAYING', 'RESCUING', 'UNLOADING'].includes(screen);
+    const playing = ['PLAYING', 'RESCUING', 'UNLOADING', 'SWITCHING'].includes(screen);
     this.get('game-hud').classList.toggle('hidden', !playing);
     this.get('main-menu').classList.toggle('hidden', screen !== 'MAIN_MENU');
     this.get('level-intro').classList.toggle('hidden', screen !== 'LEVEL_INTRO');
@@ -163,6 +165,15 @@ export class UI {
   }
 
   update(speed: number, _overview: boolean, state: HUDState) {
+    const flying = state.vehicle === 'helicopter';
+    this.get('game-hud').classList.toggle('flying', flying);
+    this.get('vehicle-label').classList.toggle('hidden', !flying);
+    this.get('flight-altitude').classList.toggle('hidden', !flying);
+    this.get('altitude').textContent = String(Math.max(0, Math.round(state.altitude ?? 0)));
+    this.get('passenger-readout').classList.toggle('hidden', flying);
+    this.get('boat-integrity').classList.toggle('hidden', flying);
+    this.get('flight-controls').classList.toggle('hidden', !flying);
+    this.get('flight-controls').textContent = state.vehicleHint ?? 'W/S fly · A/D turn · Space ↑ · Shift ↓ · Q hover';
     this.get('speed').textContent = Math.round(speed * 3.6).toString();
     this.get('objective').textContent = state.objective;
     this.get('remaining-count').textContent = String(state.remaining);
@@ -194,9 +205,10 @@ export class UI {
     const targetKind = state.targetKind ?? (state.targetIsCamp ? 'camp' : 'survivor');
     this.target.classList.toggle('camp-target', targetKind === 'camp');
     this.target.classList.toggle('kit-target', targetKind === 'kit');
-    this.get('target-name').textContent = state.targetLabel ?? (targetKind === 'camp' ? 'RELIEF CAMP' : targetKind === 'kit' ? 'MEDICAL KIT' : 'SURVIVORS');
+    this.target.classList.toggle('helipad-target', targetKind === 'helipad');
+    this.get('target-name').textContent = state.targetLabel ?? (targetKind === 'camp' ? 'RELIEF CAMP' : targetKind === 'kit' ? 'MEDICAL KIT' : targetKind === 'helipad' ? 'HELIPAD' : 'SURVIVORS');
     this.get('target-distance').textContent = state.distance <= 40 ? `${Math.round(state.distance)} m` : '';
-    this.target.querySelector('.target-glyph')!.textContent = targetKind === 'survivor' ? '!' : '+';
+    this.target.querySelector('.target-glyph')!.textContent = targetKind === 'survivor' ? '!' : targetKind === 'helipad' ? 'H' : '+';
     if (state.message !== this.currentStatus) {
       this.get('status-announcer').textContent = state.message;
       this.currentStatus = state.message;

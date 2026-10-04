@@ -40,7 +40,7 @@ test('story video can return to the main menu and replay without starting simula
 test('story video cannot bypass the briefing or enter gameplay transfer and outcome states', () => {
   const state = new GameStateManager();
   state.transition('STORY_VIDEO');
-  for (const destination of ['PLAYING', 'RESCUING', 'UNLOADING', 'PAUSED', 'LEVEL_COMPLETE', 'LEVEL_FAILED'] as const) {
+  for (const destination of ['PLAYING', 'RESCUING', 'UNLOADING', 'SWITCHING', 'PAUSED', 'LEVEL_COMPLETE', 'LEVEL_FAILED'] as const) {
     assert.throws(() => state.transition(destination), /Invalid game state/);
     assert.equal(state.state, 'STORY_VIDEO');
     assert.equal(state.simulating, false);
@@ -80,7 +80,7 @@ test('invalid state transitions throw without changing the current state', () =>
 });
 
 test('pause freezes simulation and resumes the exact active transfer state', () => {
-  for (const active of ['PLAYING', 'RESCUING', 'UNLOADING'] as const) {
+  for (const active of ['PLAYING', 'RESCUING', 'UNLOADING', 'SWITCHING'] as const) {
     const state = playing();
     state.transition(active);
     state.pause();
@@ -110,7 +110,7 @@ test('menus, briefings, completion and failure stay frozen when pause or resume 
 });
 
 test('restart and main-menu transitions are allowed during either transfer and while paused', () => {
-  for (const active of ['PLAYING', 'RESCUING', 'UNLOADING', 'PAUSED'] as const) {
+  for (const active of ['PLAYING', 'RESCUING', 'UNLOADING', 'SWITCHING', 'PAUSED'] as const) {
     for (const destination of ['MAIN_MENU', 'LEVEL_INTRO'] as const) {
       const state = playing();
       if (active === 'PAUSED') state.pause(); else state.transition(active);

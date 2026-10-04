@@ -15,13 +15,14 @@ export function showWorldView(game: Game, view: string) {
       game.mission.update(2);
     }
     boat.position.set(2, 0, 13);
-  } else if (view === 'log') boat.position.set(-15, 0, 4.2);
+  } else if (view === 'helipad') boat.position.copy(game.helipad.dockPosition);
+  else if (view === 'log') boat.position.set(-15, 0, 4.2);
   else if (view === 'aid') { boat.position.set(-1.25, 0, -18); game.supplies.kits = 1; }
   else if (view === 'animals') boat.position.set(31, 0, 20.8);
   else if (view === 'car') boat.position.set(39, 0, 17);
   else if (view === 'tree') boat.position.set(6.5, 0, 25.5);
   else boat.position.set(0, 0, 46);
-  boat.yaw = view === 'animals' || view === 'car' ? Math.PI : 0;
+  boat.yaw = view === 'helipad' ? Math.PI / 2 : view === 'animals' || view === 'car' ? Math.PI : 0;
   boat.forward.set(-Math.sin(boat.yaw), 0, -Math.cos(boat.yaw)); boat.velocity.set(0, 0, 0);
   game.boat.update(0); game.wake.reset();
   game.cameraController.overview = view === 'wide';

@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
-import { AUDIO_ASSETS, AudioManager } from '../src/game/AudioManager.ts';
+import { AUDIO_ASSETS, AudioManager, AUDIO_VOLUMES, HELICOPTER_AUDIO_ASSET } from '../src/game/AudioManager.ts';
 
-function audioHarness(t: TestContext) {
+function audioHarness(t: TestContext, options: { helicopter?: boolean; deferDecode?: boolean } = {}) {
   const calls = { contexts: 0, resumes: 0, closes: 0, oscillators: 0, buffers: 0, immediateStops: 0, requests: 0 };
   const storage = new Map<string, string>();
   const gains: ReturnType<typeof node>[] = [];
   const managers: AudioManager[] = [];
+  const requestedPaths: string[] = [];
+  let finishDecode: (() => void) | undefined;
+  const decodedBuffer = { getChannelData: () => new Float32Array(10) };
   function param() {
     return {
       value: 0,
@@ -31,13 +34,20 @@ function audioHarness(t: TestContext) {
     createBiquadFilter = node;
     createOscillator() { calls.oscillators++; return node(); }
     createBuffer(_channels: number, length: number) { return { getChannelData: () => new Float32Array(length) }; }
+    decodeAudioData() {
+      return options.deferDecode ? new Promise(resolve => { finishDecode = () => resolve(decodedBuffer); }) : Promise.resolve(decodedBuffer);
+    }
     async resume() { calls.resumes++; }
     async close() { calls.closes++; }
   }
   const replacements = {
     AudioContext: FakeAudioContext,
     sessionStorage: { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value) },
-    fetch: () => { calls.requests++; throw new Error('Default audio must not make network requests'); },
+    fetch: (path: string) => {
+      calls.requests++; requestedPaths.push(path);
+      if (!options.helicopter) throw new Error('Default audio must not make network requests');
+      return Promise.resolve({ ok: true, arrayBuffer: async () => new ArrayBuffer(10) });
+    },
   };
   const originals = Object.keys(replacements).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const);
   for (const [key, value] of Object.entries(replacements)) Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
@@ -49,7 +59,8 @@ function audioHarness(t: TestContext) {
     }
   });
   return {
-    calls, gains, storage,
+    calls, gains, storage, requestedPaths,
+    finishDecode: () => finishDecode?.(),
     create() { const manager = new AudioManager(); managers.push(manager); return manager; },
   };
 }
@@ -113,4 +124,53 @@ test('disposing stops sources and prevents audio reopening or new cues', async t
   assert.equal(calls.immediateStops, 4, 'both generated loops and both active cue tones stop');
   await audio.unlock(); audio.play('complete');
   assert.equal(calls.contexts, 1); assert.equal(calls.oscillators, 2);
+});
+
+
+test('helicopter loop loads once after unlock and follows vehicle, pause, and mute state', async t => {
+  const { create, calls, gains, requestedPaths } = audioHarness(t, { helicopter: true });
+  const audio = create();
+  audio.setVehicle('helicopter'); audio.setPlaying(true);
+  assert.equal(calls.contexts, 0); assert.equal(calls.requests, 0, 'vehicle selection cannot bypass user gesture');
+  await audio.unlock();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(requestedPaths, [HELICOPTER_AUDIO_ASSET]);
+  assert.equal(gains[2].gain.value, 0, 'boat ambience stops while piloting the helicopter');
+  assert.equal(gains[3].gain.value, AUDIO_VOLUMES.helicopter);
+  assert.ok(gains[1].gain.value > gains[3].gain.value, 'rain stays prominent over the rotor loop');
+  audio.setVehicle('boat');
+  assert.equal(gains[3].gain.value, 0); assert.ok(gains[2].gain.value > 0);
+  audio.setVehicle('helicopter'); audio.setVehicle('helicopter');
+  assert.equal(calls.requests, 1, 'switching reuses the decoded rotor loop');
+  audio.toggle(); assert.equal(gains[0].gain.value, 0, 'session mute applies to the helicopter too');
+  audio.setPlaying(false); audio.toggle();
+  assert.equal(gains[3].gain.value, 0, 'unmuting while paused cannot restart rotor audio');
+  audio.setPlaying(true); assert.equal(gains[3].gain.value, AUDIO_VOLUMES.helicopter);
+});
+
+test('a helicopter download completing during pause stays silent until flight resumes', async t => {
+  const { create, calls, gains, finishDecode } = audioHarness(t, { helicopter: true, deferDecode: true });
+  const audio = create();
+  await audio.unlock(); audio.setPlaying(true); audio.setVehicle('helicopter');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.buffers, 2, 'rotor source is not created before decoding');
+  audio.setPlaying(false); finishDecode();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(gains[3].gain.value, 0);
+  audio.setVehicle('boat'); audio.setPlaying(true);
+  assert.equal(gains[3].gain.value, 0, 'a late helicopter asset cannot play over the boat');
+  audio.setVehicle('helicopter'); assert.equal(gains[3].gain.value, AUDIO_VOLUMES.helicopter);
+});
+
+test('disposing during helicopter decoding prevents a late loop from starting', async t => {
+  const { create, calls, finishDecode } = audioHarness(t, { helicopter: true, deferDecode: true });
+  const audio = create();
+  await audio.unlock(); audio.setPlaying(true); audio.setVehicle('helicopter');
+  await new Promise(resolve => setImmediate(resolve));
+  audio.dispose(); finishDecode();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.buffers, 2, 'only the two original ambience sources were created');
+  assert.equal(calls.closes, 1);
+  audio.setVehicle('boat'); audio.setVehicle('helicopter'); await audio.unlock();
+  assert.equal(calls.requests, 1); assert.equal(calls.contexts, 1);
 });

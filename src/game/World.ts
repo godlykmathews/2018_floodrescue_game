@@ -34,7 +34,7 @@ const approachZones: readonly Collider[] = [
   { minX: 19, maxX: 32, minZ: -17, maxZ: -7 },
   { minX: 20.5, maxX: 31, minZ: 15, maxZ: 28 },
 ];
-const dockingPoints: readonly (readonly [number, number])[] = [[0, -18], [-15, 4.2], [27.8, -12], [24, 19.5]];
+const dockingPoints: readonly (readonly [number, number])[] = [[0, -18], [-15, 4.2], [27.8, -12], [24, 19.5], [-29, 39]];
 
 /** A hand-arranged village with an open central rescue route and explorable outer lanes. */
 export class World {

@@ -50,6 +50,24 @@ All levels are unlocked. Configuration supports locking them later. Debris, curr
 
 Escape pauses boat motion, transfers, mission time, and weather. Switching away from the game or losing the WebGL context also pauses simulation and clears held keys. Results show people delivered, unloading trips, elapsed mission time, boat integrity, and rating. Continue with Next Level, Retry, or Main Menu.
 
+## Rooftop helicopter
+
+Follow the cyan **H / HELIPAD DOCK** marker to the brutalist building on the southwest side of the village. Stop an **empty boat** in the dock ring and press **E** to transfer to the rooftop helicopter. The camera travels up over two seconds; the boat stays parked in its exact position. Deliver passengers before switching. Medical kits, coins, survivors and mission progress carry over.
+
+| Flight key | Action |
+| --- | --- |
+| Space | Rise / take off |
+| W / S (Up / Down) | Fly forward / reverse |
+| A / D (Left / Right) | Turn |
+| Q | Hover / brake |
+| Shift | Descend |
+| C | Chase / higher view |
+| E | Return to the boat after landing |
+
+Lift off first; forward movement becomes available above the village roof clearance (20 m). To return, slow with Q above the rooftop H and hold Shift. The final descent gently centers the aircraft on the pad. E works after touchdown, never in midair. The helicopter is currently for scouting; survivor boarding and delivery remain boat missions. Escape pauses flight, transfers and the mission clock. Restart returns both vehicles to their starting positions.
+
+The helipad is supported by the actual flat roof of `brutalist_building.glb`, with an external stairway and water-level dock. A compact derivative strips unrelated plants and ground while preserving the building. The supplied `odz-20a_universal_helicopter_20a.glb` has animated rotor nodes and uses the supplied rotor recording. Boat handling is unchanged.
+
 ## First aid and camp support
 
 Drive close to floating medical kits and heart-shaped coins to collect them. Kits use the supplied `first_aid_kit.glb`; coins use `life-up_heart_-_super_mario_odyssey.glb`. Each heart-shaped pickup contributes 25 or 50 coins to your held balance for donation at camp. Pickups do not use passenger seats.
@@ -64,10 +82,11 @@ The newer environment assets add drifting fallen trees, three partly submerged c
 
 Music integration is deferred. Quiet generated rain/water ambience and short rescue, completion, and thunder cues are available after the start gesture. Audio On/Off is remembered within the browser session. The menu itself never starts audio.
 
-Future recordings go in `public/audio/`; see its README and the `AUDIO_ASSETS` / `AUDIO_VOLUMES` mappings in `src/game/AudioManager.ts`. Null mappings make no requests, and missing configured recordings leave playable generated fallbacks. No BGM or third-party audio is bundled.
+Future recordings go in `public/audio/`; see its README and the `AUDIO_ASSETS` / `AUDIO_VOLUMES` mappings in `src/game/AudioManager.ts`. Null mappings make no requests, and missing configured recordings leave playable generated fallbacks. No BGM is bundled. The user-supplied helicopter recording is loaded on first helicopter use and follows pause and mute.
 
 ## Architecture and assets
 
+- `Helicopter.ts`, `HelicopterController.ts`, `Helipad.ts`, `VehicleTransfer.ts`, `VehicleCamera.ts`: flight, rooftop geometry, safe vehicle transfer and its camera.
 - `Game.ts`: renderer, input, application flow and existing runtime integration.
 - `GameStateManager.ts`, `LevelManager.ts`: explicit screen/simulation states and three level configurations.
 - `RescueMission.ts`, `PassengerManager.ts`, `SurvivorManager.ts`: capacity, rescue locations, transfers, delivery counts, timing and integrity.
@@ -91,6 +110,8 @@ The boat, original house, farmer, tree and grass assets are referenced by Vite; 
 Development-only test URLs:
 
 - `/?smoke=1`: selects Level 2 through its menu, then uses keyboard events and real boat movement to collect three people, attempt a fourth, unload, return, collect the remaining three, and deliver all six in two trips. It also collects supplies using real boat movement, treats both injured survivors, donates recovered coins, and verifies scene visibility, seat parenting and people remaining at camp. A compact status overlay reports PASS/FAIL and average frame rate. Allow about five minutes; keep the tab active.
+- `/?helicopter-smoke=1`: drives from the normal spawn to the helipad, switches, flies, pauses, returns and lands, switches back, and restarts using real keyboard input. Verifies parked-boat and mission/supply preservation.
+- `/?world-view=helipad`: fixed dock view for inspecting the brutalist roof and switching manually; a render fixture, not a playthrough.
 - `/?recovery=1`: verifies Escape pause/resume, mission-time freezing, focus loss, real WebGL context loss/restoration, cleared throttle and movement after recovery.
 
 `/?camp-view=1` seeds a fixed first-delivery scene for checking camp visibility when the chase camera looks through the canopy. It is a render fixture, not a playthrough; C toggles view and R returns to a normal mission.

@@ -1,0 +1,4 @@
+{
+  "result": "PASS · boat → helicopter → flight → roof → boat · 46.2s · 60 FPS\nboat → helicopter\nflight + clock pause\ntakeoff / hover / airborne E blocked\nreturn flight + roof landing\nparked boat + survivors + supplies preserved\nrestart resets both vehicles and mission",
+  "logs": []
+}
