@@ -1,0 +1,10 @@
+{
+  "purpose": "Browser-ready derivatives of the user's unchanged models/ source assets.",
+  "processing": "Meshoptimizer 0.22 simplification with locked borders and maximum normalized error 0.007; unused vertices removed; Sharp texture resize to at most 1024x1024; opaque textures JPEG quality84 and transparent textures PNG. Sitting driver keeps original geometry, skeleton and animation. Its legacy specular-glossiness diffuse material is mapped to core glTF metallic-roughness material.",
+  "forward": "+Z in source; Character applies Y rotation PI to face boat-local -Z.",
+  "assets": [
+    { "source": "grey_crop_top_and_bell-bottom_jeans.glb", "output": "woman-rescue.glb", "sourceTriangles": 247510, "outputTriangles": 32485, "outputBytes": 2648168 },
+    { "source": "mother_and_child_in_ankara_print.glb", "output": "mother-child-camp.glb", "sourceTriangles": 437368, "outputTriangles": 34451, "outputBytes": 3711884 },
+    { "source": "man_sitting_idle.glb", "output": "boat-driver.glb", "sourceTriangles": 47867, "outputTriangles": 47867, "outputBytes": 4905864, "animation": "mixamo.com seated idle, 4.3 seconds" }
+  ]
+}

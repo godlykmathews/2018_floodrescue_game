@@ -35,12 +35,12 @@ export class Boat {
     });
     object.position.y = -0.24;
     this.visual.add(object);
-    await this.driver.load(loader, { seated: true, variant: 0 });
+    await this.driver.load(loader, { seated: true, variant: 0, model: 'sitting-man' });
   }
-  update(time: number) {
+  update(time: number, surfaceHeight = 0) {
     this.root.position.copy(this.controller.position);
     this.root.rotation.y = this.controller.yaw;
-    this.visual.position.y = 0.035 * Math.sin(time * 1.8) + 0.02 * Math.sin(time * 3.2);
+    this.visual.position.y = surfaceHeight + 0.035 * Math.sin(time * 1.8) + 0.02 * Math.sin(time * 3.2);
     this.visual.rotation.z = -this.controller.turnVelocity * this.controller.speed * 0.012;
     this.visual.rotation.x = Math.sin(time * 2.1) * 0.012 - this.controller.signedSpeed * 0.004;
   }

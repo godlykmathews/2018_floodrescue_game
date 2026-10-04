@@ -2,7 +2,7 @@ import { ACESFilmicToneMapping, Color, DirectionalLight, FogExp2, HemisphereLigh
 import { AssetLoader } from '../utils/AssetLoader';
 import { Boat } from './Boat';
 import { CameraController } from './CameraController';
-import { Water } from './Water';
+import { Water, sampleFloodHeight } from './Water';
 import { World } from './World';
 import { Rain } from './Rain';
 import { SurvivorManager } from './SurvivorManager';
@@ -17,7 +17,7 @@ import { IntroVideo } from './IntroVideo';
 
 export class Game {
   readonly scene = new Scene();
-  readonly camera = new PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 260);
+  readonly camera = new PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 360);
   readonly renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   readonly boat = new Boat();
   readonly cameraController = new CameraController(this.camera);
@@ -73,7 +73,7 @@ export class Game {
     this.renderer.domElement.tabIndex = 0;
     this.renderer.domElement.setAttribute('aria-label', '3D flood rescue game. Use WASD to steer, Space to brake, E to rescue.');
     this.scene.background = new Color(0x819494);
-    this.scene.fog = new FogExp2(0x819494, 0.014);
+    this.scene.fog = new FogExp2(0x819494, this.levels.current.fogDensity);
     this.scene.add(new HemisphereLight(0xcadce0, 0x5c6956, 2.4));
     const sun = this.sun;
     sun.position.set(-25, 38, 15);
@@ -134,7 +134,7 @@ export class Game {
   }
   async start() {
     let loaded = 0;
-    const totalModels = 36;
+    const totalModels = 73;
     this.loader.onProgress = (name, fraction) => {
       this.ui.setLoading(`Loading ${name.replace(/_/g, ' ')} · ${Math.round(fraction * 100)}%`, Math.min(1, (loaded + fraction) / totalModels));
     };
@@ -142,6 +142,7 @@ export class Game {
     await this.boat.load(this.loader);
     await this.world.load(this.loader);
     await this.survivors.load(this.loader);
+    await this.camp.load(this.loader);
     this.ready = true;
     this.ui.loaded();
     this.showState();
@@ -174,7 +175,7 @@ export class Game {
     this.rain.setIntensity(level.rainMultiplier);
     (this.scene.fog as FogExp2).density = level.fogDensity;
     this.keys.clear(); this.wake.reset(); this.introTime = 0;
-    this.boat.update(this.elapsed);
+    this.updateBoatVisual();
     this.cameraController.overview = false;
     this.states.transition(playFilm ? 'STORY_VIDEO' : 'LEVEL_INTRO');
     this.showState();
@@ -254,7 +255,7 @@ export class Game {
       const steps = Math.ceil(dt / (1 / 90));
       this.world.getCurrent(this.boat.controller.position, this.current);
       for (let i = 0; i < steps; i++) this.boat.controller.update(dt / steps, input, this.world.colliders, this.current);
-      this.boat.update(this.elapsed); this.mission.update(dt);
+      this.updateBoatVisual(); this.mission.update(dt);
       this.syncMissionState();
       this.audio.update(this.boat.controller.speed);
       this.wake.update(dt, this.elapsed, this.boat.controller);
@@ -263,11 +264,11 @@ export class Game {
       const angle = this.elapsed * .018;
       this.camera.position.set(4 + Math.sin(angle) * 34, 18, -5 + Math.cos(angle) * 34);
       this.camera.lookAt(4, 0, -7);
-      this.boat.update(this.elapsed);
+      this.updateBoatVisual();
       if (this.states.state === 'LEVEL_INTRO') { this.introTime += dt; if (this.introTime >= 4.5) this.skipIntro(); }
     }
     this.camp.update(this.elapsed, this.mission.passengers.count > 0);
-    this.water.update(this.elapsed); this.world.update(this.elapsed, dt);
+    this.water.update(this.elapsed); this.world.update(this.elapsed, dt); this.survivors.update(this.elapsed);
     const thunder = Math.floor(this.mission.missionTime / 28);
     if (this.levels.current.id === 3 && this.states.simulating && thunder > this.lastThunder) {
       this.lastThunder = thunder; this.audio.play('thunder');
@@ -279,4 +280,8 @@ export class Game {
     this.camp.updateView(this.camera.position, this.boat.controller.position, dt);
     this.updateMarker(); this.renderer.render(this.scene, this.camera);
   };
+  private updateBoatVisual() {
+    const position = this.boat.controller.position;
+    this.boat.update(this.elapsed, sampleFloodHeight(position.x, position.z, this.elapsed));
+  }
 }

@@ -1,6 +1,6 @@
 # Kerala Flood Rescue
 
-A playable 3D rescue game inspired by the 2018 Kerala floods, built with plain TypeScript, Vite, Three.js, and WebGL. The compact village is fictional. This upgrade extends the original prototype and keeps its boat handling, chase camera, water, rain, asset loader, and collision systems.
+A playable 3D rescue game inspired by the 2018 Kerala floods, built with plain TypeScript, Vite, Three.js, and WebGL. The flooded village is fictional. This upgrade extends the original prototype and keeps its boat handling, chase camera, water, rain, asset loader, and collision systems.
 
 ## Run
 
@@ -43,7 +43,7 @@ A full boat cannot collect a fourth person. Return to the green relief landing, 
 | Level | Difficulty | People / locations | Minimum trips |
 | --- | --- | --- | --- |
 | 01 — The First Call | Easy | 3 at the terrace | 1 |
-| 02 — Rising Water | Medium | 2 terrace, 1 platform, 3 roof | 2 |
+| 02 — Rising Water | Medium | 2 terrace, 1 anchored log, 3 roof | 2 |
 | 03 — Against the Current | Hard | 3 at each location | 3 |
 
 All levels are unlocked. Configuration supports locking them later. Debris, current, rain, and fog increase with difficulty. Current weakens near the rescue and relief approaches. Strong collisions reduce integrity and give a small camera reaction; gentle contact is forgiving. At zero integrity, restart from the failure screen. There is no countdown: elapsed time and damage contribute to the final star rating.
@@ -67,9 +67,13 @@ Future recordings go in `public/audio/`; see its README and the `AUDIO_ASSETS` /
 - `UI.ts`, `AudioManager.ts`: DOM menus/HUD and gesture-unlocked audio.
 - `AssetLoader.ts`: cached asynchronous GLB sources, `SkeletonUtils.clone`, normalization, loading progress and warned fallbacks.
 
-Original GLBs are preserved in `models/`. The boat's bow originally faces +Z, so its model is rotated by π for the game's −Z forward direction. The lightweight farmer is reused for the fisherman and survivors with independent geometry/material pose adjustments and slight size/color variation. Its unrigged geometry receives a seated approximation with bent legs and a hip pivot. No separate sitting-man file was present in this workspace during implementation; `Character.ts` is the centralized place to adopt that asset when available.
+Original GLBs are preserved in `models/`. The boat's bow originally faces +Z, so its model is rotated by π for the game's −Z forward direction. The operator uses the supplied sitting-man skeleton and seated idle clip. Rescue groups mix farmers and women, with independent standing, seated and log-gripping poses; each level includes women. A mother and child already sheltered at camp are decorative NPCs and do not count toward the mission or passenger capacity.
 
-The selected boat, abandoned house, farmer, tree, and grass assets are referenced directly by Vite and included in the build. Each unique GLB is requested once; instances reuse source textures. A failed asset warns clearly and supplies playable fallback geometry.
+The playable water now extends to ±88 m (previously ±57 m), with 15 houses, 24 trees and three hills framing the valley. The original central routes remain intact, with outer neighbourhoods to explore. Site B is an anchored scanned log: people hold on in the water, release their grip, and visibly climb into the boat. Broader waves move the boat, floating logs and wakes visually without changing the stable planar boat physics.
+
+Large scans have compact runtime derivatives under `public/models/` with reduced geometry and texture sizes; originals remain untouched. This includes the log, hills, mansion, women and mother/child. Tiny-house and driver materials were converted to supported PBR while retaining their textures. Asset normalization refreshes cloned skeleton bounds before sizing the sitting-man rig.
+
+The boat, original house, farmer, tree and grass assets are referenced by Vite; compact derived assets are copied from `public/models/` into the build. Each unique GLB is requested once; instances reuse source textures. A failed asset warns clearly and supplies playable fallback geometry.
 
 ## Browser verification
 
@@ -79,5 +83,7 @@ Development-only test URLs:
 - `/?recovery=1`: verifies Escape pause/resume, mission-time freezing, focus loss, real WebGL context loss/restoration, cleared throttle and movement after recovery.
 
 `/?camp-view=1` seeds a fixed first-delivery scene for checking camp visibility when the chase camera looks through the canopy. It is a render fixture, not a playthrough; C toggles view and R returns to a normal mission.
+
+`/?world-view=log`, `/?world-view=crew` and `/?world-view=wide` are additional render fixtures for log survivors, the loaded boat and the expanded area. They are not playthroughs; R returns to a normal mission.
 
 These helpers are excluded from production builds. Unit tests also cover all three level populations, the complete nine-person/three-trip mission, restart during every survivor state, failure, cached loading/fallbacks, collision cooldown, fair current, and moving debris bounds.

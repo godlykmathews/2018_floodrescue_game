@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { AnimationClip, Box3, BoxGeometry, BufferGeometry, Group, Mesh, MeshStandardMaterial, Vector3 } from 'three';
+import { AnimationClip, Bone, Box3, BoxGeometry, BufferGeometry, Float32BufferAttribute, Group, Matrix4, Mesh, MeshStandardMaterial, Skeleton, SkinnedMesh, Uint16BufferAttribute, Vector3 } from 'three';
 import { AssetLoader } from '../src/utils/AssetLoader.ts';
 
 type Progress = (event: { loaded: number; total: number }) => void;
@@ -194,4 +194,36 @@ test('empty geometry uses a warned fallback without infinite or NaN transforms',
     assert.ok(node.position.toArray().every(Number.isFinite), 'empty imported bounds must leave finite positions');
     assert.ok(node.matrixWorld.elements.every(Number.isFinite), 'empty imported bounds must leave finite matrices');
   });
+});
+
+
+test('normalization refreshes cloned skeleton bind transforms before measuring centimetre-scale rigs', async () => {
+  const scene = new Group();
+  scene.scale.setScalar(0.02);
+  const bone = new Bone();
+  const geometry = new BoxGeometry(20, 180, 20).translate(0, 90, 0);
+  const count = geometry.getAttribute('position').count;
+  geometry.setAttribute('skinIndex', new Uint16BufferAttribute(new Uint16Array(count * 4), 4));
+  const weights = new Float32Array(count * 4);
+  for (let i = 0; i < count; i++) weights[i * 4] = 1;
+  geometry.setAttribute('skinWeight', new Float32BufferAttribute(weights, 4));
+  const mesh = new SkinnedMesh(geometry, new MeshStandardMaterial());
+  scene.add(bone, mesh);
+  // This is the imported sitting man's bind convention: centimetre vertices,
+  // an outer scale, and an identity bind matrix until world matrices refresh.
+  mesh.bind(new Skeleton([bone], [new Matrix4()]), new Matrix4());
+  const loader = stubLoader(async () => ({ scene, animations: [] }));
+  const loaded = await loader.loadModel({
+    path: '/models/sitting-rig.glb', size: 1.7, sizeAxis: 'y', fallback: unusedFallback,
+  });
+  loaded.object.updateMatrixWorld(true);
+  loaded.object.traverse(node => {
+    if (node instanceof SkinnedMesh) {
+      node.skeleton.update();
+      node.computeBoundingBox();
+      assert.notEqual(node.skeleton.bones[0], bone, 'the driver must retain its own skeleton');
+    }
+  });
+  close(boundsOf(loaded.object).size.y, 1.7, 'posed driver must remain human-sized after the first render');
+  close(scene.scale.x, 0.02, 'normalization must not alter the cached source rig');
 });

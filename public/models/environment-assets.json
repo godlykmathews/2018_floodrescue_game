@@ -1,0 +1,55 @@
+{
+  "purpose": "Compact derivatives of user-provided game assets; original source models are unchanged.",
+  "assets": [
+    {
+      "source": "models/large_wood_log.glb",
+      "runtime": "public/models/flood-log.glb",
+      "sourceSha256": "43b53a9d59b0052225345c07b6c04b289f2edad6e0de389cd8c8dd6fd89d4642",
+      "runtimeSha256": "b6064420b34e6646018613737c2bafc4431bb5417e5ca911ff13174c0869b6b9",
+      "sourceTriangles": 499942,
+      "runtimeTriangles": 6998,
+      "runtimeBytes": 619904,
+      "maximumTextureSize": 1024,
+      "sourcePreserved": true,
+      "process": "Bake static world transforms; meshoptimizer simplification; preserve UVs/materials; resize/re-encode embedded images for browser delivery.",
+      "adjustments": "Weld scan vertices within .012 source units before simplification. Horizontal X axis, floor pivot. Y/Z scaled .18/.20 for a grippable floating log. At width6.4m: height.542m,depth.569m."
+    },
+    {
+      "source": "models/druid_hills.glb",
+      "runtime": "public/models/flood-hills.glb",
+      "sourceSha256": "7255d1f31bb775e0671fb18a46b1b9f56ec7cb8609a1a3d3680b496bdf5aa470",
+      "runtimeSha256": "430d1a1abde639a4784676ad7a145a9fb477b627d3ccd2733b2e309caa096ef5",
+      "sourceTriangles": 127999,
+      "runtimeTriangles": 12199,
+      "runtimeBytes": 1005560,
+      "maximumTextureSize": 1024,
+      "sourcePreserved": true,
+      "process": "Bake static world transforms; meshoptimizer simplification; preserve UVs/materials; resize/re-encode embedded images for browser delivery."
+    },
+    {
+      "source": "models/abandoned_mansion.glb",
+      "runtime": "public/models/flood-mansion.glb",
+      "sourceSha256": "7b5be45f705598cdf338b318a3113cc1fc1bf73e8e4d29630cdc3fb682785b70",
+      "runtimeSha256": "f942bd6fde0f943de928ac2550197ac2fd8c985109b52e5d0f2734787d0c4987",
+      "sourceTriangles": 243780,
+      "runtimeTriangles": 25199,
+      "runtimeBytes": 3942640,
+      "maximumTextureSize": 1024,
+      "sourcePreserved": true,
+      "process": "Bake static world transforms; meshoptimizer simplification; preserve UVs/materials; resize/re-encode embedded images for browser delivery."
+    },
+    {
+      "source": "models/free_tiny_house_-_public_domain_cc0.glb",
+      "runtime": "public/models/flood-tiny-house.glb",
+      "sourceSha256": "161baeb5800c02bfd2adf1f35cba181f33f11b49c39b1f8484377605e748f31e",
+      "runtimeSha256": "fd75fd41ac87af755d3d3fb9267f41e270305155a25259f40afd59656dfe16f0",
+      "sourceTriangles": 2568,
+      "runtimeTriangles": 2568,
+      "runtimeBytes": 1507384,
+      "maximumTextureSize": 1024,
+      "sourcePreserved": true,
+      "process": "Bake static world transforms; meshoptimizer simplification; preserve UVs/materials; resize/re-encode embedded images for browser delivery.",
+      "adjustments": "Convert unsupported specular/glossiness material to nonmetallic rough material, preserving diffuse and normal maps."
+    }
+  ]
+}

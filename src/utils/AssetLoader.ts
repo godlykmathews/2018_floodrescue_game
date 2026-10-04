@@ -1,4 +1,4 @@
-import { AnimationClip, Box3, Group, Mesh, Object3D, Vector3 } from 'three';
+import { AnimationClip, Box3, Group, Mesh, Object3D, SkinnedMesh, Vector3 } from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 
@@ -37,6 +37,10 @@ export class AssetLoader {
       }
       const gltf = await request;
       source = clone(gltf.scene);
+      // Cloned skinned meshes initially retain the source bind inverse. Refresh
+      // it before measuring posed bounds, especially for centimetre-scale rigs.
+      source.updateMatrixWorld(true);
+      source.traverse(node => { if (node instanceof SkinnedMesh) node.computeBoundingBox(); });
       const sourceBounds = new Box3().setFromObject(source);
       if (sourceBounds.isEmpty() || ![...sourceBounds.min.toArray(), ...sourceBounds.max.toArray()].every(Number.isFinite)) {
         throw new Error('The model has no finite renderable geometry.');

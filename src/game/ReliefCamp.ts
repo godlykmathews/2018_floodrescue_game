@@ -1,10 +1,14 @@
 import { Box3, BoxGeometry, CanvasTexture, CylinderGeometry, DoubleSide, Group, MathUtils, Mesh, MeshBasicMaterial, MeshStandardMaterial, Ray, RingGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
 import type { Collider } from './BoatController';
+import type { AssetLoader } from '../utils/AssetLoader';
+import { Character } from './Character';
+const CREW_SIGHTLINES = [[0, 0], [1.8, 0], [-1.8, 0], [0, 1.8], [0, -1.8]] as const;
 
 export class ReliefCamp {
   readonly root = new Group();
   readonly collider: Collider = { minX: 19, maxX: 29, minZ: 22.5, maxZ: 27.5 };
   readonly ring: Mesh;
+  readonly shelteredFamily = new Character();
   private readonly canopy: Mesh<BoxGeometry, MeshStandardMaterial>;
   private readonly sign: Sprite;
   private readonly sightline = new Ray();
@@ -49,18 +53,24 @@ export class ReliefCamp {
     this.ring.rotation.x = -Math.PI / 2;
     this.ring.position.set(24, 0.14, 18);
     this.root.add(this.ring);
+    this.shelteredFamily.root.name = 'SHELTERED_FAMILY';
+    this.shelteredFamily.root.position.set(27.65, 0.88, 25.9);
+    this.root.add(this.shelteredFamily.root);
   }
+  async load(loader: AssetLoader) { await this.shelteredFamily.load(loader, { model: 'mother-child' }); }
   /** Reveal the boat when the chase camera passes behind the camp roof. */
   updateView(cameraPosition: Vector3, boatPosition: Vector3, dt = 1 / 60) {
-    this.sightlineTarget.copy(boatPosition);
-    this.sightlineTarget.y += 0.65;
-    const length = cameraPosition.distanceTo(this.sightlineTarget);
     this.sightline.origin.copy(cameraPosition);
-    this.sightline.direction.subVectors(this.sightlineTarget, cameraPosition).normalize();
-    const hit = this.sightline.intersectBox(this.canopyBounds, this.sightlineHit);
-    const roofBetweenCameraAndBoat = hit !== null && cameraPosition.distanceTo(hit) < length;
-    const canopyTarget = roofBetweenCameraAndBoat && cameraPosition.distanceTo(this.canopy.position) < 14 ? 0.12 : 1;
-    const signTarget = MathUtils.smoothstep(cameraPosition.distanceTo(this.sign.position), 5, 12);
+    // Check the crew and hull edges too: in overview the centre can be clear
+    // while the stern and driver are still hidden beneath the canopy.
+    const roofBetweenCameraAndBoat = CREW_SIGHTLINES.some(([x, z]) => {
+      this.sightlineTarget.set(boatPosition.x + x, boatPosition.y + 0.65, boatPosition.z + z);
+      this.sightline.direction.subVectors(this.sightlineTarget, cameraPosition).normalize();
+      const hit = this.sightline.intersectBox(this.canopyBounds, this.sightlineHit);
+      return hit !== null && cameraPosition.distanceTo(hit) < cameraPosition.distanceTo(this.sightlineTarget);
+    });
+    const canopyTarget = roofBetweenCameraAndBoat ? 0.12 : 1;
+    const signTarget = roofBetweenCameraAndBoat ? 0 : MathUtils.smoothstep(cameraPosition.distanceTo(this.sign.position), 5, 12);
     this.canopy.material.opacity = MathUtils.damp(this.canopy.material.opacity, canopyTarget, 9, dt);
     this.sign.material.opacity = MathUtils.damp(this.sign.material.opacity, signTarget, 9, dt);
     if (Math.abs(this.canopy.material.opacity - canopyTarget) < 0.001) this.canopy.material.opacity = canopyTarget;

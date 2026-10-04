@@ -5,6 +5,10 @@ async function boot() {
   try {
     const game = new Game(app);
     await game.start();
+    if (import.meta.env.DEV && new URLSearchParams(location.search).has('world-view')) {
+      const { showWorldView } = await import('../tests/browser-world-view');
+      showWorldView(game, new URLSearchParams(location.search).get('world-view')!);
+    }
     if (import.meta.env.DEV && new URLSearchParams(location.search).has('camp-view')) {
       const { showCampView } = await import('../tests/browser-camp-view');
       showCampView(game);

@@ -2,8 +2,13 @@ import { Box3, BoxGeometry, BufferGeometry, CylinderGeometry, Group, Line, LineB
 import { AssetLoader } from '../utils/AssetLoader';
 import type { Collider } from './BoatController';
 import type { LevelConfig } from './LevelManager';
+import { sampleFloodHeight } from './Water';
 
 const HOUSE = new URL('../../models/abandoned_house_3-low_poly.glb', import.meta.url).href;
+const TINY_HOUSE = '/models/flood-tiny-house.glb';
+const MANSION = '/models/flood-mansion.glb';
+const HILLS = '/models/flood-hills.glb';
+const LOG = '/models/flood-log.glb';
 const TREE = new URL('../../models/jabami_anime_tree-grass_v1.glb', import.meta.url).href;
 const GRASS = new URL('../../models/grass.glb', import.meta.url).href;
 
@@ -26,7 +31,7 @@ const approachZones: readonly Collider[] = [
 ];
 const dockingPoints: readonly (readonly [number, number])[] = [[0, -18], [-15, 4.2], [27.8, -12], [24, 19.5]];
 
-/** A small, hand-arranged village with wide water lanes and inexpensive static collisions. */
+/** A hand-arranged village with an open central rescue route and explorable outer lanes. */
 export class World {
   readonly root = new Group();
   readonly colliders: Collider[] = [];
@@ -35,7 +40,8 @@ export class World {
   private driftTime = 0;
 
   constructor() {
-    const ground = new Mesh(new BoxGeometry(124, 0.4, 124), new MeshStandardMaterial({ color: 0x4e513d, roughness: 1 }));
+    const ground = new Mesh(new BoxGeometry(260, 0.4, 260), new MeshStandardMaterial({ color: 0x4e513d, roughness: 1 }));
+    ground.name = 'SUBMERGED_VILLAGE_GROUND';
     ground.position.y = -2.2;
     ground.receiveShadow = true;
     this.root.add(ground);
@@ -48,19 +54,30 @@ export class World {
     // The southern gap is the starting basin; the central lane leads north to rescue.
     // Camp and rescue platforms are supplied by their own gameplay modules.
     const houses = [
-      { x: -14, z: 12, rotation: 0 },
-      { x: 14, z: 7, rotation: Math.PI },
-      { x: -15, z: -7, rotation: Math.PI / 2 },
-      { x: 15, z: -12, rotation: -Math.PI / 2 },
-      { x: 0, z: -29, rotation: 0 },
-      { x: -23, z: -30, rotation: Math.PI / 2 },
-      { x: 28, z: 30, rotation: Math.PI },
+      { x: -14, z: 12, rotation: 0, path: HOUSE, size: 9 },
+      { x: 14, z: 7, rotation: Math.PI, path: HOUSE, size: 9 },
+      { x: -15, z: -7, rotation: Math.PI / 2, path: HOUSE, size: 9 },
+      { x: 15, z: -12, rotation: -Math.PI / 2, path: HOUSE, size: 9 },
+      { x: 0, z: -29, rotation: 0, path: HOUSE, size: 9 },
+      { x: -23, z: -30, rotation: Math.PI / 2, path: HOUSE, size: 9 },
+      { x: 28, z: 30, rotation: Math.PI, path: HOUSE, size: 9 },
+      // Keep the original seven footprints intact; new neighbourhoods sit outside the
+      // rescue/camp approaches, with enough water between them to turn the boat.
+      { x: -49, z: 22, rotation: 0.2, path: TINY_HOUSE, size: 9 },
+      { x: -44, z: -22, rotation: Math.PI / 2, path: TINY_HOUSE, size: 10 },
+      { x: 47, z: -38, rotation: -0.15, path: MANSION, size: 16 },
+      { x: 52, z: 10, rotation: -Math.PI / 2, path: TINY_HOUSE, size: 9.5 },
+      { x: -30, z: 51, rotation: 0.12, path: TINY_HOUSE, size: 10 },
+      { x: 25, z: 60, rotation: Math.PI, path: TINY_HOUSE, size: 10 },
+      { x: -43, z: -59, rotation: 0.15, path: MANSION, size: 17 },
+      { x: 10, z: -61, rotation: 0, path: TINY_HOUSE, size: 9.5 },
     ];
     for (const house of houses) {
       const { object } = await loader.loadModel({
-        path: HOUSE, size: 9, sizeAxis: 'max', rotationY: house.rotation,
+        path: house.path, size: house.size, sizeAxis: 'max', rotationY: house.rotation,
         position: [house.x, -1.3, house.z], fallback: fallbackHouse,
       });
+      object.name = house.path === MANSION ? 'FLOODED_MANSION' : 'FLOODED_HOUSE';
       this.root.add(object);
       const bounds = new Box3().setFromObject(object);
       // Small roof overhangs should not prevent a boat from approaching the walls.
@@ -71,6 +88,9 @@ export class World {
       [-23, 23, 12], [-32, 8, 13], [-28, -10, 11], [-36, -29, 14],
       [-14, -41, 12], [7, -40, 13], [25, -31, 11], [35, -6, 14],
       [30, 9, 12], [41, 30, 13], [15, 40, 12], [-11, 35, 11],
+      [-62, 29, 15], [-62, -5, 13], [-63, -46, 16], [-25, -73, 14],
+      [24, -74, 15], [65, -55, 16], [70, -15, 14], [67, 24, 15],
+      [47, 60, 14], [-7, 71, 13], [-53, 57, 15], [5, 54, 12],
     ];
     for (const [x, z, height] of trees) {
       const { object } = await loader.loadModel({
@@ -81,12 +101,57 @@ export class World {
       // The canopy is deliberately excluded: only the trunk blocks the hull.
       this.colliders.push({ minX: x - 0.45, maxX: x + 0.45, minZ: z - 0.45, maxZ: z + 0.45 });
     }
-    for (const [x, z] of [[-21, 15], [21, 3], [-22, -15], [21, -18], [-8, -34], [34, 34]]) {
+    for (const [x, z] of [[-21, 15], [21, 3], [-22, -15], [21, -18], [-8, -34], [34, 34],
+      [-53, 26], [-48, -27], [40, -44], [57, 15], [-34, 55], [20, 64]]) {
       const { object } = await loader.loadModel({
         path: GRASS, size: 1.45, sizeAxis: 'y', position: [x, -0.65, z],
         rotationY: x, shadows: false, fallback: fallbackGrass,
       });
       this.root.add(object);
+    }
+
+    // Three low-cost terrain instances frame the flooded valley. Their closest
+    // edges are 90m from the centre, outside the playable +/-88m water boundary.
+    for (const [x, z, size, rotation] of [[-158, -30, 136, 0.12], [158, -35, 136, -0.12], [0, -170, 160, 0]]) {
+      const { object } = await loader.loadModel({
+        path: HILLS, size, sizeAxis: 'max', position: [x, -3.4, z],
+        rotationY: rotation, shadows: false, fallback: fallbackHills,
+      });
+      object.name = 'VALLEY_HILLS';
+      object.traverse(node => {
+        if (!(node instanceof Mesh)) return;
+        const applyValleyFog = (source: MeshStandardMaterial) => {
+          // The valley keeps its dense flood mist while higher slopes break
+          // through it. Clone materials so this cannot alter village assets.
+          const material = source.clone();
+          material.onBeforeCompile = shader => {
+            shader.vertexShader = shader.vertexShader.replace('#include <fog_vertex>', `
+              #include <fog_vertex>
+              #ifdef USE_FOG
+                float hillWorldHeight = (modelMatrix * vec4(transformed, 1.0)).y;
+                vFogDepth *= mix(1.0, 0.55, smoothstep(6.0, 20.0, hillWorldHeight));
+              #endif`);
+          };
+          material.customProgramCacheKey = () => 'valley-hills-height-fog-v1';
+          return material;
+        };
+        node.material = Array.isArray(node.material)
+          ? node.material.map(material => applyValleyFog(material as MeshStandardMaterial))
+          : applyValleyFog(node.material as MeshStandardMaterial);
+      });
+      this.root.add(object);
+    }
+
+    // Load the scanned log once through the shared cache, then reuse its compact
+    // geometry. Collision and drift still belong to the original hazard groups.
+    for (const item of this.debris.filter(item => item.object.name.startsWith('FLOATING_LOG_'))) {
+      const { object } = await loader.loadModel({
+        path: LOG, size: item.halfWidth * 2, sizeAxis: 'x', position: [0, -0.10, 0],
+        fallback: fallbackLog,
+      });
+      item.object.traverse(child => { if (child instanceof Mesh) child.geometry.dispose(); });
+      item.object.clear();
+      item.object.add(object);
     }
   }
 
@@ -123,7 +188,8 @@ export class World {
     this.debris.forEach((item, i) => {
       if (!item.active) return;
       const object = item.object;
-      object.position.y = 0.08 + Math.sin(time * 1.2 + i * 2) * 0.055;
+      object.position.y = 0.08 + sampleFloodHeight(object.position.x, object.position.z, time)
+        + Math.sin(time * 1.2 + i * 2) * 0.018;
       object.rotation.x = Math.sin(time * 0.9 + i) * 0.025;
       if (this.currentStrength === 0) return;
       // Slow local eddies make the hazard move without eventually sealing a rescue route.
@@ -235,4 +301,21 @@ function fallbackTree() {
 
 function fallbackGrass() {
   return new Mesh(new CylinderGeometry(0.1, 1.3, 1.4, 5), new MeshStandardMaterial({ color: 0x66714a, roughness: 1 }));
+}
+
+function fallbackLog() {
+  const log = new Mesh(new CylinderGeometry(0.04, 0.045, 1, 9), new MeshStandardMaterial({ color: 0x66503b, roughness: 1 }));
+  log.rotation.z = Math.PI / 2;
+  return log;
+}
+
+function fallbackHills() {
+  const hills = new Group();
+  const material = new MeshStandardMaterial({ color: 0x566451, roughness: 1 });
+  for (const [x, z, height] of [[-0.22, 0.08, 0.22], [0.1, -0.04, 0.36], [0.3, 0.15, 0.19]]) {
+    const hill = new Mesh(new CylinderGeometry(0.04, 0.35, height, 14), material);
+    hill.position.set(x, height / 2, z);
+    hills.add(hill);
+  }
+  return hills;
 }

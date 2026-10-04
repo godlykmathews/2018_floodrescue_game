@@ -1,10 +1,10 @@
 import { BoxGeometry, CylinderGeometry, Group, Mesh, MeshStandardMaterial, Vector3 } from 'three';
 import { AssetLoader } from '../utils/AssetLoader';
 import type { Collider } from './BoatController';
-import { Character } from './Character';
+import { Character, type CharacterOptions } from './Character';
 
 export type SurvivorState = 'WAITING' | 'BOARDING' | 'PASSENGER' | 'DISEMBARKING' | 'SAFE';
-export interface SurvivorOptions { id?: string; locationId?: string; position?: [number, number, number]; rotationY?: number; variant?: number; platform?: boolean }
+export interface SurvivorOptions { id?: string; locationId?: string; position?: [number, number, number]; rotationY?: number; variant?: number; platform?: boolean; model?: CharacterOptions['model']; clinging?: boolean }
 
 export class Survivor {
   readonly root = new Group();
@@ -31,7 +31,10 @@ export class Survivor {
     }
     this.reset();
   }
-  async load(loader: AssetLoader) { await this.actor.load(loader, { variant: this.options.variant ?? 0 }); }
+  async load(loader: AssetLoader) {
+    await this.actor.load(loader, { variant: this.options.variant ?? 0, model: this.options.model });
+    this.actor.setClinging(this.options.clinging ? 1 : 0);
+  }
   reset() {
     this.state = 'WAITING';
     this.root.add(this.character);
@@ -39,6 +42,7 @@ export class Survivor {
     this.character.rotation.set(0, this.options.rotationY ?? 0, 0);
     this.actor.resetScale();
     this.actor.setSeated(0);
+    this.actor.setClinging(this.options.clinging ? 1 : 0);
   }
   update(dt: number) { this.actor.update(dt); }
 }

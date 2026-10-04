@@ -125,6 +125,7 @@ export class RescueMission {
     const t = Math.min(this.transferTime / 2, 1);
     const person = this.active;
     if (this.phase === 'boarding') {
+      if (person.options.clinging) person.actor.setClinging(1 - MathUtils.smoothstep(t, 0, 0.25));
       const seat = this.passengers.seatOf(person)!;
       this.boat.root.updateMatrixWorld(true);
       seat.getWorldPosition(this.to);

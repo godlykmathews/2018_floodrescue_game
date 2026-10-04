@@ -1,5 +1,6 @@
 import { BufferAttribute, BufferGeometry, DoubleSide, DynamicDrawUsage, Group, Mesh, MeshBasicMaterial } from 'three';
 import type { BoatController } from './BoatController';
+import { sampleFloodHeight } from './Water';
 
 const CAPACITY = 42;
 const SEGMENTS = 4;
@@ -91,7 +92,7 @@ export class Wake {
           const x = driftX + rightX * outward - mark.fx * backward;
           const z = driftZ + rightZ * outward - mark.fz * backward;
           const width = (0.045 + mark.age * 0.022) * Math.sin(Math.PI * fraction);
-          const y = 0.073 + Math.sin(time * 1.2 + x * 0.4 + z * 0.3) * 0.009;
+          const y = sampleFloodHeight(x, z, time) + 0.035;
           const alpha = opacity * Math.sin(Math.PI * fraction) ** 0.5;
           for (let edge = 0; edge < 2; edge++) {
             const vertex = i * VERTICES_PER_WAKE + arm * (SEGMENTS + 1) * 2 + segment * 2 + edge;

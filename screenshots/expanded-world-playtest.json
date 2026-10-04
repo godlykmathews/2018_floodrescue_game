@@ -1,0 +1,56 @@
+[
+  {
+    "level": "info",
+    "message": "[Smoke] A · board two passed · 2/3 aboard · 0/6 safe · 0 trips",
+    "timestamp": "2026-10-04T08:25:43.098Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791102045938"
+  },
+  {
+    "level": "info",
+    "message": "[Smoke] B · third passenger passed · 3/3 aboard · 0/6 safe · 0 trips",
+    "timestamp": "2026-10-04T08:26:21.181Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791102045938"
+  },
+  {
+    "level": "info",
+    "message": "[Smoke] C · reject fourth passenger passed · 3/3 aboard · 0/6 safe · 0 trips",
+    "timestamp": "2026-10-04T08:27:31.948Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791102045938"
+  },
+  {
+    "level": "info",
+    "message": "[Smoke] CAMP · first delivery passed · 0/3 aboard · 3/6 safe · 1 trips",
+    "timestamp": "2026-10-04T08:28:22.514Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791102045938"
+  },
+  {
+    "level": "info",
+    "message": "[Smoke] C · board remaining three passed · 3/3 aboard · 3/6 safe · 1 trips",
+    "timestamp": "2026-10-04T08:29:23.923Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791102045938"
+  },
+  {
+    "level": "info",
+    "message": "[Smoke] CAMP · final delivery passed · 0/3 aboard · 6/6 safe · 2 trips",
+    "timestamp": "2026-10-04T08:30:13.548Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791102045938"
+  },
+  {
+    "level": "info",
+    "message": "[Smoke] Complete Level 2 acceptance passed · 60 fps average · 139 draw calls · 333281 triangles · six visible SAFE characters + driver",
+    "timestamp": "2026-10-04T08:30:13.551Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791102045938"
+  },
+  {
+    "level": "info",
+    "message": "[Smoke] A · board two passed · 2/3 aboard · 0/6 safe · 0 trips",
+    "timestamp": "2026-10-04T08:40:38.534Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791102045938"
+  },
+  {
+    "level": "info",
+    "message": "[Smoke] B · third passenger passed · 3/3 aboard · 0/6 safe · 0 trips",
+    "timestamp": "2026-10-04T08:45:50.187Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791102045938"
+  }
+]

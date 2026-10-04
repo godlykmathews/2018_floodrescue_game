@@ -55,7 +55,7 @@ export class BoatController {
         for (const box of colliders) this.resolveCollision(box, offset);
       }
     }
-    const limit = 57;
+    const limit = 88;
     if (Math.abs(this.position.x) > limit || Math.abs(this.position.z) > limit) {
       this.position.x = MathUtils.clamp(this.position.x, -limit, limit);
       this.position.z = MathUtils.clamp(this.position.z, -limit, limit);
