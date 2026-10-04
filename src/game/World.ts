@@ -1,16 +1,38 @@
-import { Box3, BoxGeometry, BufferGeometry, CylinderGeometry, Group, Line, LineBasicMaterial, Mesh, MeshStandardMaterial, Object3D, Vector3 } from 'three';
+import { Box3, BoxGeometry, BufferGeometry, CylinderGeometry, Group, Line, LineBasicMaterial, MathUtils, Mesh, MeshStandardMaterial, Object3D, Vector3 } from 'three';
 import { AssetLoader } from '../utils/AssetLoader';
 import type { Collider } from './BoatController';
+import type { LevelConfig } from './LevelManager';
 
 const HOUSE = new URL('../../models/abandoned_house_3-low_poly.glb', import.meta.url).href;
 const TREE = new URL('../../models/jabami_anime_tree-grass_v1.glb', import.meta.url).href;
 const GRASS = new URL('../../models/grass.glb', import.meta.url).href;
 
+interface FloatingDebris {
+  object: Object3D;
+  collider: Collider;
+  anchor: Vector3;
+  halfWidth: number;
+  halfDepth: number;
+  phase: number;
+  active: boolean;
+}
+
+// Clear approach basins around terraces and the landing remain free of drifting obstacles.
+const approachZones: readonly Collider[] = [
+  { minX: -5, maxX: 5, minZ: -26, maxZ: -14 },
+  { minX: -20, maxX: -10, minZ: -4, maxZ: 8 },
+  { minX: 19, maxX: 32, minZ: -17, maxZ: -7 },
+  { minX: 20.5, maxX: 31, minZ: 15, maxZ: 28 },
+];
+const dockingPoints: readonly (readonly [number, number])[] = [[0, -18], [-15, 4.2], [27.8, -12], [24, 19.5]];
+
 /** A small, hand-arranged village with wide water lanes and inexpensive static collisions. */
 export class World {
   readonly root = new Group();
   readonly colliders: Collider[] = [];
-  private debris: Object3D[] = [];
+  private debris: FloatingDebris[] = [];
+  private currentStrength = 0;
+  private driftTime = 0;
 
   constructor() {
     const ground = new Mesh(new BoxGeometry(124, 0.4, 124), new MeshStandardMaterial({ color: 0x4e513d, roughness: 1 }));
@@ -47,7 +69,7 @@ export class World {
 
     const trees = [
       [-23, 23, 12], [-32, 8, 13], [-28, -10, 11], [-36, -29, 14],
-      [-14, -41, 12], [7, -40, 13], [25, -31, 11], [31, -12, 14],
+      [-14, -41, 12], [7, -40, 13], [25, -31, 11], [35, -6, 14],
       [30, 9, 12], [41, 30, 13], [15, 40, 12], [-11, 35, 11],
     ];
     for (const [x, z, height] of trees) {
@@ -68,11 +90,58 @@ export class World {
     }
   }
 
-  update(time: number) {
-    this.debris.forEach((object, i) => {
+  setDifficulty(level: LevelConfig) {
+    this.currentStrength = level.currentStrength;
+    this.driftTime = 0;
+    this.debris.forEach((item, index) => {
+      // Keep the original prototype's third log until a level is configured, then move it
+      // outside the protected relief approach before enabling its drift.
+      if (index === 2) item.anchor.set(18.5, 0.08, 16);
+      item.active = index < Math.min(this.debris.length, level.debrisCount);
+      item.object.visible = item.active;
+      item.object.position.copy(item.anchor);
+      this.placeCollider(item, item.anchor.x, item.anchor.z);
+      const colliderIndex = this.colliders.indexOf(item.collider);
+      if (item.active && colliderIndex < 0) this.colliders.push(item.collider);
+      if (!item.active && colliderIndex >= 0) this.colliders.splice(colliderIndex, 1);
+    });
+  }
+
+  getCurrent(position: Vector3, out: Vector3) {
+    const region = 0.75 + 0.5 * MathUtils.smoothstep(position.x, -10, 22);
+    let shelter = 1;
+    for (const [x, z] of dockingPoints) {
+      const distance = Math.hypot(position.x - x, position.z - z);
+      shelter = Math.min(shelter, 0.08 + 0.92 * MathUtils.smoothstep(distance, 4, 10));
+    }
+    return out.set(0.55 + Math.sin(position.z * 0.045) * 0.18, 0, 0.8 + Math.cos(position.x * 0.08) * 0.1)
+      .normalize().multiplyScalar(this.currentStrength * region * shelter);
+  }
+
+  update(time: number, dt = 0) {
+    this.driftTime += Math.min(0.1, Math.max(0, dt));
+    this.debris.forEach((item, i) => {
+      if (!item.active) return;
+      const object = item.object;
       object.position.y = 0.08 + Math.sin(time * 1.2 + i * 2) * 0.055;
       object.rotation.x = Math.sin(time * 0.9 + i) * 0.025;
+      if (this.currentStrength === 0) return;
+      // Slow local eddies make the hazard move without eventually sealing a rescue route.
+      const amplitude = (0.35 + this.currentStrength * 0.6) * Math.min(1, this.driftTime / 5);
+      const x = item.anchor.x + Math.sin(this.driftTime * 0.095 + item.phase) * amplitude;
+      const z = item.anchor.z + Math.sin(this.driftTime * 0.07 + item.phase) * amplitude * 0.7;
+      const candidate = { minX: x - item.halfWidth, maxX: x + item.halfWidth, minZ: z - item.halfDepth, maxZ: z + item.halfDepth };
+      const intersects = (box: Collider) => candidate.minX < box.maxX + 0.15 && candidate.maxX > box.minX - 0.15
+        && candidate.minZ < box.maxZ + 0.15 && candidate.maxZ > box.minZ - 0.15;
+      if (approachZones.some(intersects) || this.colliders.some(box => box !== item.collider && intersects(box))) return;
+      object.position.x = x; object.position.z = z;
+      this.placeCollider(item, x, z);
     });
+  }
+
+  private placeCollider(item: FloatingDebris, x: number, z: number) {
+    Object.assign(item.collider, { minX: x - item.halfWidth, maxX: x + item.halfWidth,
+      minZ: z - item.halfDepth, maxZ: z + item.halfDepth });
   }
 
   private addUtilities() {
@@ -113,17 +182,33 @@ export class World {
 
   private addDebris() {
     const material = new MeshStandardMaterial({ color: 0x574633, roughness: 0.98 });
-    for (const [x, z, length] of [[5.5, 15, 2.2], [-3.8, -9, 1.8], [20, 17, 2.4], [-16, 27, 1.9], [8, -32, 2]]) {
+    const containerMaterial = new MeshStandardMaterial({ color: 0x596f72, roughness: 0.94 });
+    const plankMaterial = new MeshStandardMaterial({ color: 0x807158, roughness: 1 });
+    const specs = [[5.5, 15, 2.2, 0], [-3.8, -9, 1.8, 0], [20, 17, 2.4, 0], [-16, 27, 1.9, 0], [8, -32, 2, 0],
+      [7, -2, 1.05, 1], [-25, 12, 2, 2], [-7, 11.5, 1.6, 2], [21, -24, 2.3, 0], [34, 18, 1.1, 1], [-4, 33, 0.95, 1]];
+    specs.forEach(([x, z, length, kind], index) => {
       const group = new Group();
+      group.name = `FLOATING_${kind === 0 ? 'LOG' : kind === 1 ? 'CONTAINER' : 'WRECKAGE'}_${index}`;
       group.position.set(x, 0.08, z);
-      const log = new Mesh(new CylinderGeometry(0.14, 0.2, length, 7), material);
-      log.rotation.z = Math.PI / 2;
-      log.castShadow = true;
-      group.add(log);
+      const depth = kind === 0 ? 0.4 : kind === 1 ? 0.8 : 0.9;
+      if (kind === 0) {
+        const log = new Mesh(new CylinderGeometry(0.14, 0.2, length, 7), material);
+        log.rotation.z = Math.PI / 2; log.castShadow = true; group.add(log);
+      } else {
+        const body = new Mesh(new BoxGeometry(length, kind === 1 ? 0.65 : 0.18, depth), kind === 1 ? containerMaterial : plankMaterial);
+        body.castShadow = true; group.add(body);
+        if (kind === 2) {
+          const brace = new Mesh(new BoxGeometry(0.2, 0.1, depth), material);
+          brace.position.y = 0.13; group.add(brace);
+        }
+      }
       this.root.add(group);
-      this.debris.push(group);
-      this.colliders.push({ minX: x - length / 2, maxX: x + length / 2, minZ: z - 0.2, maxZ: z + 0.2 });
-    }
+      const collider = { minX: x - length / 2, maxX: x + length / 2, minZ: z - depth / 2, maxZ: z + depth / 2 };
+      const active = index < 5;
+      group.visible = active;
+      this.debris.push({ object: group, collider, anchor: group.position.clone(), halfWidth: length / 2, halfDepth: depth / 2, phase: index * 1.7, active });
+      if (active) this.colliders.push(collider);
+    });
   }
 }
 

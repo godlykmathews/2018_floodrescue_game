@@ -5,6 +5,10 @@ async function boot() {
   try {
     const game = new Game(app);
     await game.start();
+    if (import.meta.env.DEV && new URLSearchParams(location.search).has('camp-view')) {
+      const { showCampView } = await import('../tests/browser-camp-view');
+      showCampView(game);
+    }
     if (import.meta.env.DEV && new URLSearchParams(location.search).has('recovery')) {
       const { runBrowserRecovery } = await import('../tests/browser-recovery');
       void runBrowserRecovery(game);

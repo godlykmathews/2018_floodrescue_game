@@ -1,10 +1,17 @@
-import { BoxGeometry, CanvasTexture, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, RingGeometry, Sprite, SpriteMaterial } from 'three';
+import { Box3, BoxGeometry, CanvasTexture, CylinderGeometry, DoubleSide, Group, MathUtils, Mesh, MeshBasicMaterial, MeshStandardMaterial, Ray, RingGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
 import type { Collider } from './BoatController';
 
 export class ReliefCamp {
   readonly root = new Group();
   readonly collider: Collider = { minX: 19, maxX: 29, minZ: 22.5, maxZ: 27.5 };
   readonly ring: Mesh;
+  private readonly canopy: Mesh<BoxGeometry, MeshStandardMaterial>;
+  private readonly sign: Sprite;
+  private readonly sightline = new Ray();
+  private readonly sightlineTarget = new Vector3();
+  private readonly sightlineHit = new Vector3();
+  // The roof slab over the original deck footprint, including its small overhang.
+  private readonly canopyBounds = new Box3(new Vector3(18.7, 3.5, 22.2), new Vector3(29.3, 4.2, 27.8));
   constructor() {
     const wood = new MeshStandardMaterial({ color: 0x716552, roughness: 0.9 });
     const deck = new Mesh(new BoxGeometry(10, 0.35, 5), wood);
@@ -18,7 +25,7 @@ export class ReliefCamp {
         this.root.add(pillar);
       }
     }
-    const canopy = new Mesh(new BoxGeometry(10.6, 0.15, 5.6), new MeshStandardMaterial({ color: 0xb9d0b9, roughness: 0.86 }));
+    const canopy = this.canopy = new Mesh(new BoxGeometry(10.6, 0.15, 5.6), new MeshStandardMaterial({ color: 0xb9d0b9, roughness: 0.86, transparent: true, depthWrite: false }));
     canopy.position.set(24, 3.85, 25);
     canopy.rotation.z = -0.035;
     canopy.castShadow = true;
@@ -35,7 +42,7 @@ export class ReliefCamp {
     ctx.strokeStyle = '#a6ddad'; ctx.lineWidth = 5; ctx.strokeRect(8, 8, 496, 112);
     ctx.fillStyle = '#e2efcf'; ctx.font = 'bold 39px sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('+  RELIEF CAMP', 256, 79);
-    const sign = new Sprite(new SpriteMaterial({ map: new CanvasTexture(canvas), depthTest: true }));
+    const sign = this.sign = new Sprite(new SpriteMaterial({ map: new CanvasTexture(canvas), depthTest: true, transparent: true, depthWrite: false }));
     sign.position.set(24, 4.8, 25); sign.scale.set(7.5, 1.875, 1);
     this.root.add(sign);
     this.ring = new Mesh(new RingGeometry(3.75, 4, 64), new MeshBasicMaterial({ color: 0x9ed6ac, transparent: true, opacity: 0.75, side: DoubleSide, depthWrite: false }));
@@ -43,6 +50,23 @@ export class ReliefCamp {
     this.ring.position.set(24, 0.14, 18);
     this.root.add(this.ring);
   }
+  /** Reveal the boat when the chase camera passes behind the camp roof. */
+  updateView(cameraPosition: Vector3, boatPosition: Vector3, dt = 1 / 60) {
+    this.sightlineTarget.copy(boatPosition);
+    this.sightlineTarget.y += 0.65;
+    const length = cameraPosition.distanceTo(this.sightlineTarget);
+    this.sightline.origin.copy(cameraPosition);
+    this.sightline.direction.subVectors(this.sightlineTarget, cameraPosition).normalize();
+    const hit = this.sightline.intersectBox(this.canopyBounds, this.sightlineHit);
+    const roofBetweenCameraAndBoat = hit !== null && cameraPosition.distanceTo(hit) < length;
+    const canopyTarget = roofBetweenCameraAndBoat && cameraPosition.distanceTo(this.canopy.position) < 14 ? 0.12 : 1;
+    const signTarget = MathUtils.smoothstep(cameraPosition.distanceTo(this.sign.position), 5, 12);
+    this.canopy.material.opacity = MathUtils.damp(this.canopy.material.opacity, canopyTarget, 9, dt);
+    this.sign.material.opacity = MathUtils.damp(this.sign.material.opacity, signTarget, 9, dt);
+    if (Math.abs(this.canopy.material.opacity - canopyTarget) < 0.001) this.canopy.material.opacity = canopyTarget;
+    if (Math.abs(this.sign.material.opacity - signTarget) < 0.001) this.sign.material.opacity = signTarget;
+  }
+
   update(time: number, active: boolean) {
     this.ring.scale.setScalar(1 + Math.sin(time * 1.7) * 0.035);
     (this.ring.material as MeshBasicMaterial).opacity = active ? 0.65 + Math.sin(time * 2) * 0.18 : 0.24;

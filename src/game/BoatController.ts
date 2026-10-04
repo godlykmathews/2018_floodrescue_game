@@ -12,6 +12,9 @@ export class BoatController {
   locked = false;
   readonly forward = new Vector3(0, 0, -1);
   private right = new Vector3(1, 0, 0);
+  /** Strong collision notification; the mission decides how much integrity to remove. */
+  onCollision: (speed: number) => void = () => {};
+  private impactCooldown = 0;
   get speed() { return this.velocity.length(); }
   get signedSpeed() { return this.velocity.dot(this.forward); }
 
@@ -22,9 +25,11 @@ export class BoatController {
     this.turnVelocity = 0;
     this.forward.set(0, 0, -1);
     this.locked = false;
+    this.impactCooldown = 0;
   }
 
-  update(dt: number, input: BoatInput, colliders: readonly Collider[] = []) {
+  update(dt: number, input: BoatInput, colliders: readonly Collider[] = [], current?: Vector3) {
+    this.impactCooldown = Math.max(0, this.impactCooldown - dt);
     if (this.locked) { this.velocity.set(0, 0, 0); this.turnVelocity = 0; return; }
     this.forward.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
     this.right.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
@@ -35,6 +40,9 @@ export class BoatController {
     const nextForward = MathUtils.clamp((forwardSpeed + input.throttle * acceleration * dt) * Math.exp(-drag * dt), -2.6, 8.2);
     const lateral = lateralSpeed * Math.exp(-(input.brake ? 3.8 : 1.65) * dt);
     this.velocity.copy(this.forward).multiplyScalar(nextForward).addScaledVector(this.right, lateral);
+    // A gentle acceleration from the flood, restrained by the existing water drag and brake.
+    // Omitting current preserves the original handling exactly.
+    if (current) this.velocity.addScaledVector(current, dt);
     const authority = 0.24 + Math.min(Math.abs(nextForward) / 5, 1) * 0.83;
     const targetTurn = -input.steer * authority * (nextForward < -0.25 ? -1 : 1);
     this.turnVelocity = MathUtils.damp(this.turnVelocity, targetTurn, 4.5, dt);
@@ -78,6 +86,10 @@ export class BoatController {
       this.velocity.x -= dx * inward * 1.2;
       this.velocity.z -= dz * inward * 1.2;
       this.velocity.multiplyScalar(0.68);
+      if (-inward > 2.5 && this.impactCooldown === 0) {
+        this.impactCooldown = 0.8;
+        this.onCollision(-inward);
+      }
     }
   }
 }

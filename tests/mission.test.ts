@@ -25,9 +25,23 @@ function finishBoarding(mission: RescueMission) {
   for (let i = 0; i < 132; i++) mission.update(1 / 60);
 }
 
+function arriveAtCamp(boat: Boat, mission: RescueMission) {
+  boat.controller.position.copy(mission.campPosition);
+  boat.controller.velocity.set(0, 0, 0);
+  boat.controller.yaw = Math.PI;
+  boat.controller.forward.set(0, 0, 1);
+  boat.update(0);
+}
+
 function assertSearchReset(boat: Boat, survivor: Survivor, mission: RescueMission) {
   assert.equal(mission.phase, 'search');
   assert.equal(mission.rescued, false);
+  assert.equal(mission.passengers.count, 0);
+  assert.equal(mission.safeCount, 0);
+  assert.equal(mission.trips, 0);
+  assert.equal(mission.missionTime, 0);
+  assert.equal(mission.integrity, 100);
+  assert.equal(survivor.state, 'WAITING');
   assert.equal(mission.target, survivor.position);
   assert.equal(boat.controller.locked, false);
   assert.deepEqual(boat.controller.position.toArray(), [0, 0, 27]);
@@ -46,14 +60,15 @@ test('a new mission points to the stranded survivor and cannot rescue from the s
   assert.equal(mission.target, survivor.position);
   assert.equal(mission.distance, 49);
   assert.equal(mission.interact(), false);
-  assert.equal(mission.getHUD().objective, 'Rescue the stranded survivor');
+  assert.equal(mission.getHUD().objective, 'Rescue remaining survivors');
+  assert.equal(mission.getHUD().message, '', 'distant survivors should not produce persistent instructions');
 });
 
 test('distance, safe speed, and bow alignment guard the rescue interaction', () => {
   const scenarios = [
-    { name: 'far', distance: 20, speed: 0, heading: -1, message: 'FIND THE STRANDED SURVIVOR' },
-    { name: 'ahead', distance: 9, speed: 0, heading: -1, message: 'SURVIVOR AHEAD' },
-    { name: 'fast', distance: 4, speed: 3, heading: -1, message: 'TOO FAST — SLOW DOWN' },
+    { name: 'far', distance: 20, speed: 0, heading: -1, message: '' },
+    { name: 'ahead', distance: 9, speed: 0, heading: -1, message: '' },
+    { name: 'fast', distance: 4, speed: 3, heading: -1, message: 'SLOW DOWN' },
     { name: 'align', distance: 4, speed: 0, heading: 1, message: 'ALIGN THE BOAT' },
   ] as const;
   for (const scenario of scenarios) {
@@ -89,10 +104,12 @@ test('valid interaction starts boarding once, locks movement, and clears residua
   assert.equal(mission.phase, 'boarding');
   assert.equal(boat.controller.locked, true);
   assert.equal(boat.controller.speed, 0);
-  assert.equal(mission.rescued, false);
+  assert.equal(mission.safeCount, 0, 'boarding must not count as delivery');
+  assert.equal(survivor.state, 'BOARDING');
+  assert.equal(mission.passengers.count, 1, 'the seat is reserved for the person boarding');
   assert.equal(mission.interact(), false, 'holding E must not restart an active boarding animation');
   assert.equal(mission.getHUD().ready, false);
-  assert.equal(mission.getHUD().message, 'HELPING SURVIVOR ABOARD…');
+  assert.equal(mission.getHUD().message, 'BOARDING');
   const position = boat.controller.position.clone();
   boat.controller.update(0.2, { throttle: 1, steer: 1, brake: false });
   assert.ok(boat.controller.position.equals(position));
@@ -111,19 +128,21 @@ test('boarding moves smoothly from the platform to the boat before parenting to 
   assert.equal(survivor.character.parent, survivor.root);
   mission.update(0.95);
   const midway = survivor.character.getWorldPosition(new Vector3());
-  assert.ok(Math.abs(midway.z - (start.z + seat.z) / 2) < 0.01, 'midpoint should be halfway across the transfer');
-  assert.ok(midway.y > (start.y + seat.y) / 2 + 0.4, 'the transfer should follow its gentle raised arc');
+  assert.ok(midway.distanceTo(start) > early.distanceTo(start), 'the survivor must progress toward the boat');
+  assert.ok(midway.distanceTo(seat) > 0.1, 'boarding must remain visible before the final seat attachment');
+  assert.ok(midway.toArray().every(Number.isFinite));
   assert.equal(mission.phase, 'boarding');
   assert.equal(boat.controller.locked, true);
   mission.update(1.05);
   assert.equal(mission.phase, 'return');
   assert.equal(survivor.character.parent, boat.seat);
+  assert.equal(survivor.state, 'PASSENGER');
   assert.deepEqual(survivor.character.position.toArray(), [0, 0, 0]);
   assert.equal(boat.controller.locked, false);
   assert.equal(mission.rescued, true);
   assert.equal(mission.target, mission.campPosition);
-  assert.equal(mission.getHUD().objective, 'Go to the relief camp');
-  assert.equal(mission.getHUD().message, 'SURVIVOR RESCUED');
+  assert.equal(mission.getHUD().objective, 'Deliver passengers');
+  assert.equal(mission.getHUD().message, '');
 });
 
 test('the rescued passenger travels with the boat and E cannot board them twice', () => {
@@ -139,7 +158,8 @@ test('the rescued passenger travels with the boat and E cannot board them twice'
   assert.ok(passenger.distanceTo(seat) < 1e-9);
   assert.equal(mission.interact(), false);
   mission.update(5.1);
-  assert.equal(mission.getHUD().message, 'GO TO THE RELIEF CAMP');
+  assert.equal(mission.getHUD().objective, 'Deliver passengers');
+  assert.equal(mission.getHUD().message, '');
 });
 
 test('restart midway through boarding restores the survivor and permits a fresh rescue', () => {
@@ -177,6 +197,8 @@ test('visiting the relief camp before rescuing anyone cannot complete the missio
   assert.equal(mission.rescued, false);
   assert.equal(mission.getHUD().completed, false);
   assert.equal(boat.controller.locked, false);
+  assert.equal(mission.interact(), false, 'E at an empty camp must not create an unloading trip');
+  assert.equal(mission.trips, 0);
 });
 
 test('relief delivery requires both a nearby boat and a safe total speed', () => {
@@ -187,39 +209,76 @@ test('relief delivery requires both a nearby boat and a safe total speed', () =>
   boat.controller.position.copy(mission.campPosition).add(new Vector3(6, 0, 0));
   mission.update(1 / 60);
   assert.equal(mission.phase, 'return', 'a stopped boat outside the landing zone must not complete');
+  assert.equal(mission.interact(), false);
   assert.equal(boat.controller.locked, false);
   boat.controller.position.copy(mission.campPosition);
   boat.controller.velocity.set(2, 0, 0);
   mission.update(1 / 60);
   assert.equal(mission.phase, 'return', 'lateral speed must also prevent an unsafe delivery');
-  assert.equal(mission.getHUD().message, 'TOO FAST — SLOW DOWN');
+  assert.equal(mission.getHUD().message, 'SLOW DOWN');
+  assert.equal(mission.interact(), false);
   assert.equal(mission.getHUD().completed, false);
   boat.controller.velocity.set(0, 0, -2);
   mission.update(1 / 60);
   assert.equal(mission.phase, 'return', 'forward speed must prevent an unsafe delivery');
+  assert.equal(mission.interact(), false);
 });
 
-test('safe arrival completes the actual mission sequence and stops further movement', () => {
+test('safe arrival waits for E, then visibly unloads before completing and stopping movement', () => {
   const { boat, survivor, mission } = createMission();
   approach(boat, survivor);
   assert.equal(mission.interact(), true);
   finishBoarding(mission);
   assert.equal(mission.phase, 'return');
-  boat.controller.position.copy(mission.campPosition).add(new Vector3(2, 0, 1));
+  arriveAtCamp(boat, mission);
+  boat.controller.position.add(new Vector3(2, 0, 1));
   boat.controller.velocity.set(0, 0, -0.8);
+  boat.update(0);
   mission.update(1 / 60);
+  assert.equal(mission.phase, 'return', 'arrival alone must not unload or complete');
+  assert.equal(survivor.state, 'PASSENGER');
+  assert.equal(mission.safeCount, 0);
+  assert.equal(mission.getHUD().message, '[ E ]  DISEMBARK PASSENGERS');
+  assert.equal(mission.getHUD().ready, true);
+  const seatedPosition = survivor.character.getWorldPosition(new Vector3());
+  assert.equal(mission.interact(), true);
+  assert.equal(mission.phase, 'unloading');
+  assert.equal(survivor.state, 'DISEMBARKING');
+  assert.equal(boat.controller.locked, true);
+  assert.equal(boat.controller.speed, 0);
+  assert.equal(mission.interact(), false, 'repeated E must not restart unloading');
+  assert.ok(survivor.character.getWorldPosition(new Vector3()).distanceTo(seatedPosition) < 1e-9,
+    'leaving the seat parent must preserve the world position');
+  mission.update(0.1);
+  const early = survivor.character.getWorldPosition(new Vector3());
+  assert.ok(early.distanceTo(seatedPosition) > 0);
+  assert.ok(early.distanceTo(seatedPosition) < 0.5, 'the first unloading frames must not teleport to camp');
+  assert.equal(mission.safeCount, 0);
+  mission.update(1.1);
+  assert.equal(mission.phase, 'unloading');
+  assert.equal(mission.safeCount, 0, 'a survivor in transit is not safe yet');
+  mission.update(1);
   assert.equal(mission.phase, 'complete');
   assert.equal(mission.rescued, true);
   assert.equal(mission.getHUD().completed, true);
   assert.equal(mission.getHUD().message, 'MISSION COMPLETE');
   assert.equal(boat.controller.locked, true);
   assert.equal(boat.controller.speed, 0);
-  assert.equal(survivor.character.parent, boat.seat);
+  assert.equal(survivor.state, 'SAFE');
+  assert.equal(survivor.character.parent, survivor.root);
+  assert.equal(mission.passengers.count, 0);
+  assert.equal(boat.seat.children.length, 0);
+  assert.equal(mission.safeCount, 1);
+  assert.equal(mission.trips, 1);
+  const safePosition = survivor.character.getWorldPosition(new Vector3());
+  assert.ok(safePosition.x >= 19 && safePosition.x <= 29);
+  assert.ok(safePosition.z >= 22.5 && safePosition.z <= 27.5, 'the survivor must stay on the camp deck');
   assert.equal(mission.interact(), false);
   const finishPosition = boat.controller.position.clone();
   boat.controller.update(0.5, { throttle: 1, steer: 1, brake: false });
   mission.update(2);
   assert.ok(boat.controller.position.equals(finishPosition));
+  assert.ok(survivor.character.getWorldPosition(new Vector3()).equals(safePosition));
   assert.equal(mission.phase, 'complete');
 });
 
@@ -229,8 +288,9 @@ test('restart from mission complete clears the result and allows a second full m
     approach(boat, survivor);
     assert.equal(mission.interact(), true);
     finishBoarding(mission);
-    boat.controller.position.copy(mission.campPosition);
-    mission.update(1 / 60);
+    arriveAtCamp(boat, mission);
+    assert.equal(mission.interact(), true);
+    finishBoarding(mission);
     assert.equal(mission.phase, 'complete');
     mission.reset();
     assertSearchReset(boat, survivor, mission);

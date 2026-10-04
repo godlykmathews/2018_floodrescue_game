@@ -1,84 +1,218 @@
+import type { GameState } from './GameStateManager';
+import { LEVELS, missionRating, type LevelConfig } from './LevelManager';
+
 export interface HUDState {
-  objective: string;
-  detail: string;
-  message: string;
-  hint: string;
-  ready: boolean;
-  rescued: boolean;
-  completed: boolean;
-  distance: number;
+  objective: string; detail: string; message: string; hint: string;
+  ready: boolean; rescued: boolean; completed: boolean; distance: number;
+  passengers: number; total: number; safe: number; remaining: number;
+  integrity: number; time: number; trips: number; failed: boolean; targetIsCamp: boolean;
 }
 
+export interface UIActions {
+  start: (levelId: number) => void;
+  resume: () => void;
+  restart: () => void;
+  mainMenu: () => void;
+  nextLevel: () => void;
+  toggleAudio: () => void;
+  skipIntro: () => void;
+}
+
+/** DOM presentation only. Game owns mission, screen state, audio, and timing. */
 export class UI {
   readonly target: HTMLDivElement;
-  private speed: HTMLElement;
-  private objective: HTMLElement;
-  private detail: HTMLElement;
-  private message: HTMLElement;
-  private hint: HTMLElement;
-  private context: HTMLElement;
-  private complete: HTMLElement;
-  private loading: HTMLElement;
-  private progress: HTMLElement;
-  private phase: HTMLElement;
-  private count: HTMLElement;
-  private camera: HTMLElement;
-  private currentStatus = '';
+  private readonly elements = new Map<string, HTMLElement>();
+  private screen: GameState = 'MAIN_MENU';
+  private selectedLevel = 1;
+  private levels: readonly LevelConfig[] = [];
+    private currentStatus = '';
+  private currentResult = '';
 
-  constructor(container: HTMLElement, restart: () => void) {
+  constructor(private container: HTMLElement, private actions: UIActions, levels: readonly LevelConfig[] = LEVELS) {
     container.insertAdjacentHTML('beforeend', `
       <div class="scene-shade" aria-hidden="true"></div>
-      <header class="top">
-        <div class="identity"><div class="eyebrow"><span class="status-dot"></span> KERALA · AUGUST 2018</div><h1>KERALA <span>FLOOD RESCUE</span></h1><div class="mission-objective"><span class="objective-number">01</span><div><small>OBJECTIVE</small><p id="objective">Rescue the stranded survivor</p><p id="objective-detail" class="muted">Follow the amber marker</p></div></div></div>
-        <div class="telemetry"><div class="weather">MONSOON <span>●</span> HEAVY RAIN</div><div class="speed-readout"><span id="speed">0</span><div><small>KM/H</small><span>BOAT SPEED</span></div></div><div class="passenger-count"><span class="person-icon">♙</span><span id="rescued-count">0 / 1</span> <small>ABOARD</small></div></div>
-      </header>
-      <div id="world-target" class="world-target"><div class="target-glyph">!</div><div class="target-label">SURVIVOR <span id="target-distance"></span></div></div>
-      <div id="context" class="context"><div class="context-symbol">↗</div><div><div id="context-message">FIND THE STRANDED SURVIVOR</div><p id="context-hint">W / A / S / D to navigate · Hold Space to slow down</p></div></div>
-      <footer class="bottom"><span class="field-note">FLOOD RESPONSE <b>01</b></span><div class="controls"><span><kbd>W A S D</kbd> Navigate</span><span><kbd>SPACE</kbd> Brake</span><span><kbd>E</kbd> Rescue</span><span><kbd>C</kbd> Camera</span><span><kbd>R</kbd> Restart</span></div><span id="camera-mode">CHASE CAMERA</span></footer>
-      <div id="complete" class="completion hidden" role="dialog" aria-modal="true" aria-labelledby="complete-heading"><div class="complete-card"><div class="complete-icon">✓</div><small>SAFE AT THE RELIEF CAMP</small><h2 id="complete-heading">MISSION<br>COMPLETE</h2><p>You brought someone home to safety.</p><div class="result"><span>PEOPLE RESCUED</span><strong>1</strong></div><button id="restart-button">RESTART MISSION <span>↗</span></button><p class="restart-hint">or press R to head out again</p></div></div>
+      <div id="game-hud" class="game-hud hidden">
+        <header class="top">
+          <div class="mission-objective"><small>OBJECTIVE</small><p id="objective">Rescue remaining survivors</p><div class="survivor-summary"><strong id="remaining-count">6</strong><span>REMAINING</span><i></i><span id="safe-count">0 / 6 SAFE</span></div></div>
+          <div class="telemetry"><div class="speed-readout"><span id="speed">0</span><small>KM/H</small></div><div class="passenger-count"><div id="seat-dots" aria-hidden="true"><i></i><i></i><i></i></div><strong id="rescued-count">0 / 3</strong><small>PASSENGERS</small></div><div class="integrity"><span>BOAT</span><div class="integrity-track"><i id="integrity-bar"></i></div><span id="integrity-value">100%</span></div></div>
+        </header>
+        <div id="world-target" class="world-target"><div class="target-glyph">!</div><div class="target-label"><span id="target-name">SURVIVORS</span><span id="target-distance"></span></div></div>
+        <div id="context" class="context hidden"><kbd id="interaction-key" class="hidden">E</kbd><span id="context-message"></span></div>
+      </div>
+      <section id="main-menu" class="menu-screen" aria-label="Main menu">
+        <div id="menu-home" class="menu-home"><div class="menu-kicker"><span class="status-dot"></span> A RESCUE MISSION</div><h1>KERALA<span>FLOOD RESCUE</span></h1><div class="menu-date">AUGUST 2018</div><p class="menu-quote">The roads are gone.<br>The water is still rising.<br>People are waiting.</p><div class="home-actions"><button id="start-button" class="button primary">START RESCUE <span aria-hidden="true">↗</span></button><button id="level-select-button" class="button quiet">LEVEL SELECT <span aria-hidden="true">01 — 03</span></button><button id="how-to-button" class="button quiet">HOW TO PLAY <span aria-hidden="true">+</span></button><button class="button quiet audio-button">AUDIO: ON <span aria-hidden="true">♪</span></button></div></div>
+        <div id="menu-levels" class="menu-panel hidden"><div class="panel-heading"><div><small>CHOOSE YOUR MISSION</small><h2>LEVEL SELECT</h2></div><button class="back-button" data-back aria-label="Back to main menu">← BACK</button></div><div id="level-options" class="level-options" role="group" aria-label="Rescue levels"></div><div class="level-footer"><p id="selected-level-description"></p><button id="level-start-button" class="button primary">START RESCUE <span aria-hidden="true">↗</span></button></div></div>
+        <div id="menu-help" class="menu-panel help-panel hidden"><div class="panel-heading"><div><small>TAKE THE HELM</small><h2>HOW TO PLAY</h2></div><button class="back-button" data-back aria-label="Back to main menu">← BACK</button></div><div class="help-columns"><dl class="control-list"><div><dt><kbd>W</kbd> / <kbd>↑</kbd></dt><dd>Accelerate</dd></div><div><dt><kbd>S</kbd> / <kbd>↓</kbd></dt><dd>Reverse</dd></div><div><dt><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd></dt><dd>Steer</dd></div><div><dt><kbd>SPACE</kbd></dt><dd>Brake</dd></div><div><dt><kbd>E</kbd></dt><dd>Rescue / interact</dd></div><div><dt><kbd>C</kbd></dt><dd>Camera</dd></div><div><dt><kbd>R</kbd></dt><dd>Restart level</dd></div><div><dt><kbd>ESC</kbd></dt><dd>Pause</dd></div></dl><div class="rescue-guide"><small>BRING EVERYONE HOME</small><ol><li><strong>Find the amber markers.</strong><span>Approach survivors slowly and stop near their rescue point.</span></li><li><strong>Make room for three.</strong><span>Your boat carries a driver and up to three survivors per trip.</span></li><li><strong>Return to the relief camp.</strong><span>Stop by the mint marker, then press E to let passengers off.</span></li><li><strong>Head out again.</strong><span>Bring everyone to safety. Watch for drifting debris and submerged obstacles.</span></li></ol></div></div></div>
+      </section>
+      <section id="level-intro" class="overlay intro-screen hidden" role="dialog" aria-modal="true" aria-labelledby="intro-title"><div class="intro-card"><small>KERALA — AUGUST 2018</small><div id="intro-number" class="intro-number">LEVEL 01</div><h2 id="intro-title">THE FIRST CALL</h2><p id="intro-briefing"></p><div class="intro-task"><span id="intro-survivors">CAPACITY 3 · 3 PEOPLE</span></div><div class="intro-rule"></div><button id="skip-intro-button" class="back-button"><kbd>SPACE</kbd> TO SKIP</button></div></section>
+      <section id="pause-menu" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pause-heading"><div class="pause-card"><small>TAKE A BREATH</small><h2 id="pause-heading">PAUSED</h2><div class="stack-actions"><button id="resume-button" class="button primary">RESUME <span aria-hidden="true">↗</span></button><button id="pause-restart-button" class="button secondary">RESTART LEVEL</button><button class="button secondary audio-button">AUDIO: ON</button><button id="pause-main-button" class="button secondary">MAIN MENU</button></div></div></section>
+      <section id="complete" class="overlay completion hidden" role="dialog" aria-modal="true" aria-labelledby="complete-heading"><div class="complete-card"><small id="complete-kicker">ALL SURVIVORS SAFE</small><h2 id="complete-heading">MISSION<br>COMPLETE</h2><div id="result-rating" class="result-rating" aria-label="Three stars">★ ★ ★</div><div class="result-statistics"><div><span>PEOPLE RESCUED</span><strong id="result-people">6 / 6</strong></div><div><span>TRIPS</span><strong id="result-trips">2</strong></div><div><span>MISSION TIME</span><strong id="result-time">04:32</strong></div><div><span>BOAT INTEGRITY</span><strong id="result-integrity">86%</strong></div></div><div class="stack-actions"><button id="next-level-button" class="button primary">NEXT LEVEL <span aria-hidden="true">↗</span></button><button id="restart-button" class="button secondary">RETRY</button><button id="complete-main-button" class="button text-button">MAIN MENU</button></div></div></section>
       <div id="loading" class="loading"><div><small>KERALA · FLOOD RESPONSE</small><h2>EVERY RESCUE<br>MATTERS.</h2><div class="loading-track"><div id="loading-progress"></div></div><p id="loading-phase">Preparing your boat…</p></div></div>
       <span id="status-announcer" class="sr-only" role="status" aria-live="polite"></span>
       <div id="pause-notice" class="pause-notice hidden" role="status"><strong id="pause-title">PAUSED</strong><span id="pause-detail"></span></div>
     `);
-    const get = (id: string) => document.getElementById(id)!;
-    this.target = get('world-target') as HTMLDivElement;
-    this.speed = get('speed'); this.objective = get('objective'); this.detail = get('objective-detail');
-    this.message = get('context-message'); this.hint = get('context-hint'); this.context = get('context');
-    this.complete = get('complete'); this.loading = get('loading'); this.progress = get('loading-progress');
-    this.phase = get('loading-phase'); this.count = get('rescued-count'); this.camera = get('camera-mode');
-    get('restart-button').addEventListener('click', restart);
+    container.querySelectorAll<HTMLElement>('[id]').forEach(element => this.elements.set(element.id, element));
+    this.target = this.get('world-target') as HTMLDivElement;
+    this.on('start-button', () => this.actions.start(this.selectedLevel));
+    this.on('level-start-button', () => this.actions.start(this.selectedLevel));
+    this.on('level-select-button', () => this.showMenuPanel('levels'));
+    this.on('how-to-button', () => this.showMenuPanel('help'));
+    this.on('skip-intro-button', () => this.actions.skipIntro());
+    this.on('resume-button', () => this.actions.resume());
+    this.on('pause-restart-button', () => this.actions.restart());
+    this.on('restart-button', () => this.actions.restart());
+    this.on('pause-main-button', () => this.actions.mainMenu());
+    this.on('complete-main-button', () => this.actions.mainMenu());
+    this.on('next-level-button', () => this.actions.nextLevel());
+    container.querySelectorAll<HTMLButtonElement>('[data-back]').forEach(button => button.addEventListener('click', () => this.showMenuPanel('home')));
+    container.querySelectorAll<HTMLButtonElement>('.audio-button').forEach(button => button.addEventListener('click', () => this.actions.toggleAudio()));
+    container.addEventListener('keydown', event => this.trapFocus(event));
+    this.setLevels(levels);
+    this.get('main-menu').inert = true;
   }
-  setLoading(message: string, fraction: number) {
-    this.phase.textContent = message;
-    this.progress.style.width = `${Math.round(Math.max(0.03, fraction) * 100)}%`;
+
+  private get(id: string) { return this.elements.get(id)!; }
+  private on(id: string, callback: () => void) { this.get(id).addEventListener('click', callback); }
+  private showMenuPanel(panel: 'home' | 'levels' | 'help') {
+    for (const name of ['home', 'levels', 'help']) this.get(`menu-${name}`).classList.toggle('hidden', name !== panel);
+    this.get(panel === 'home' ? 'start-button' : panel === 'levels' ? 'level-options' : 'menu-help').querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+    if (panel === 'home') this.get('start-button').focus();
   }
-  loaded() { this.loading.classList.add('hidden'); }
-  fail(message: string) { this.loading.classList.remove('hidden'); this.phase.textContent = message; }
-  setPaused(reason: 'focus' | 'graphics' | null) {
-    document.getElementById('pause-notice')!.classList.toggle('hidden', reason === null);
-    document.getElementById('pause-title')!.textContent = reason === 'graphics' ? 'RESTORING THE VIEW…' : 'PAUSED';
-    document.getElementById('pause-detail')!.textContent = reason === 'graphics'
-      ? 'Your mission is paused while the view recovers.'
-      : 'Return to the game to continue.';
-  }
-  update(speed: number, overview: boolean, state: HUDState) {
-    this.speed.textContent = Math.round(speed * 3.6).toString();
-    this.camera.textContent = overview ? 'OVERVIEW CAMERA' : 'CHASE CAMERA';
-    this.objective.textContent = state.objective;
-    this.detail.textContent = state.detail;
-    this.message.textContent = state.message;
-    this.hint.textContent = state.hint;
-    this.context.classList.toggle('ready', state.ready);
-    this.context.classList.toggle('hidden', state.completed);
-    this.complete.classList.toggle('hidden', !state.completed);
-    this.count.textContent = state.rescued ? '1 / 1' : '0 / 1';
-    this.target.classList.toggle('camp-target', state.rescued);
-    this.target.querySelector('.target-label')!.innerHTML = `${state.rescued ? 'RELIEF CAMP' : 'SURVIVOR'} <span>${Math.round(state.distance)} m</span>`;
-    this.target.querySelector('.target-glyph')!.textContent = state.rescued ? '+' : '!';
-    if (state.message !== this.currentStatus) {
-      document.getElementById('status-announcer')!.textContent = state.message;
-      this.currentStatus = state.message;
-      if (state.completed) document.getElementById('restart-button')!.focus();
+
+  setLevels(levels: readonly LevelConfig[]) {
+    this.levels = levels;
+    const options = this.get('level-options');
+    options.replaceChildren();
+    for (const level of levels) {
+      const button = document.createElement('button');
+      button.className = 'level-card';
+      button.disabled = !level.unlocked;
+      button.dataset.level = String(level.id);
+      button.setAttribute('aria-pressed', 'false');
+      const number = document.createElement('span'); number.className = 'level-number'; number.textContent = String(level.id).padStart(2, '0');
+      const title = document.createElement('strong'); title.textContent = level.title;
+      const information = document.createElement('span'); information.className = 'level-information'; information.textContent = `${level.survivors} SURVIVORS · ${level.difficulty.toUpperCase()}`;
+      const status = document.createElement('span'); status.className = 'level-status'; status.textContent = !level.unlocked ? 'LOCKED' : 'SELECT MISSION';
+      button.append(number, title, information, status);
+      button.addEventListener('click', () => this.selectLevel(level.id));
+      options.append(button);
     }
+    this.selectLevel(this.selectedLevel);
+  }
+
+  selectLevel(id: number) {
+    const level = this.levels.find(item => item.id === id && item.unlocked) ?? this.levels.find(item => item.unlocked);
+    if (!level) return;
+    this.selectedLevel = level.id;
+    this.container.querySelectorAll<HTMLButtonElement>('.level-card').forEach(button => {
+      const selected = Number(button.dataset.level) === level.id;
+      button.classList.toggle('selected', selected);
+      button.setAttribute('aria-pressed', String(selected));
+      if (!button.disabled) button.querySelector('.level-status')!.textContent = selected ? 'SELECTED' : 'SELECT MISSION';
+    });
+    this.get('selected-level-description').textContent = level.id === 1 ? 'One family. One boat. Your first call.' : `Up to three passengers aboard. At least ${Math.ceil(level.survivors / 3)} trips to bring everyone home.`;
+  }
+
+  setScreen(screen: GameState, level?: LevelConfig, statistics?: HUDState) {
+    if (level && this.selectedLevel !== level.id) this.selectLevel(level.id);
+    const changed = screen !== this.screen;
+    this.screen = screen;
+    const playing = ['PLAYING', 'RESCUING', 'UNLOADING'].includes(screen);
+    this.get('game-hud').classList.toggle('hidden', !playing);
+    this.get('main-menu').classList.toggle('hidden', screen !== 'MAIN_MENU');
+    this.get('level-intro').classList.toggle('hidden', screen !== 'LEVEL_INTRO');
+    this.get('pause-menu').classList.toggle('hidden', screen !== 'PAUSED');
+    const result = screen === 'LEVEL_COMPLETE' || screen === 'LEVEL_FAILED';
+    this.get('complete').classList.toggle('hidden', !result);
+    this.container.dataset.gameScreen = screen;
+    if (screen === 'LEVEL_INTRO' && level) {
+      this.get('intro-number').textContent = `LEVEL ${String(level.id).padStart(2, '0')}`;
+      this.get('intro-title').textContent = level.title;
+      this.get('intro-briefing').textContent = level.briefing.join('\n');
+      this.get('intro-survivors').textContent = `CAPACITY 3 · ${level.survivors} PEOPLE`;
+    }
+    if (result && statistics) this.showResult(statistics, screen === 'LEVEL_FAILED');
+    if (!changed) return;
+    if (screen === 'MAIN_MENU') this.showMenuPanel('home');
+    if (screen === 'PAUSED') this.get('resume-button').focus();
+    if (screen === 'LEVEL_INTRO') this.get('skip-intro-button').focus();
+    if (result) this.get(screen === 'LEVEL_COMPLETE' && !this.get('next-level-button').classList.contains('hidden') ? 'next-level-button' : 'restart-button').focus();
+  }
+
+  setAudio(enabled: boolean) {
+    this.container.querySelectorAll<HTMLButtonElement>('.audio-button').forEach(button => {
+      button.textContent = `AUDIO: ${enabled ? 'ON' : 'OFF'}`;
+      button.setAttribute('aria-pressed', String(enabled));
+    });
+  }
+
+  setLoading(message: string, fraction: number) {
+    this.get('loading-phase').textContent = message;
+    this.get('loading-progress').style.width = `${Math.round(Math.max(0.03, Math.min(1, fraction)) * 100)}%`;
+  }
+  loaded() { this.get('loading').classList.add('hidden'); this.get('main-menu').inert = false; this.get('start-button').focus(); }
+  fail(message: string) { this.get('loading').classList.remove('hidden'); this.get('loading-phase').textContent = message; }
+  setPaused(reason: 'focus' | 'graphics' | null) {
+    this.get('pause-notice').classList.toggle('hidden', reason === null);
+    this.get('pause-title').textContent = reason === 'graphics' ? 'RESTORING THE VIEW…' : 'PAUSED';
+    this.get('pause-detail').textContent = reason === 'graphics' ? 'Your mission is paused while the view recovers.' : 'Return to the game to continue.';
+  }
+
+  update(speed: number, _overview: boolean, state: HUDState) {
+    this.get('speed').textContent = Math.round(speed * 3.6).toString();
+    this.get('objective').textContent = state.objective;
+    this.get('remaining-count').textContent = String(state.remaining);
+    this.get('safe-count').textContent = `${state.safe} / ${state.total} SAFE`;
+    this.get('rescued-count').textContent = `${state.passengers} / 3`;
+    this.get('seat-dots').querySelectorAll('i').forEach((dot, i) => dot.classList.toggle('occupied', i < state.passengers));
+    this.get('rescued-count').classList.toggle('full', state.passengers === 3);
+    const integrity = Math.max(0, Math.round(state.integrity));
+    this.get('integrity-value').textContent = `${integrity}%`;
+    this.get('integrity-bar').style.width = `${integrity}%`;
+    this.get('integrity-bar').classList.toggle('damaged', integrity < 35);
+    this.get('context-message').textContent = state.message.replace(/^\[\s*E\s*\]\s*/i, '').replace(/^E\b\s*(?:—\s*)?/i, '').replace(/^PRESS E TO\s*/i, '');
+    this.get('interaction-key').classList.toggle('hidden', !state.ready);
+    this.get('context').classList.toggle('ready', state.ready);
+    this.get('context').classList.toggle('hidden', state.completed || state.failed || !state.message);
+    this.target.classList.toggle('camp-target', state.targetIsCamp);
+    this.get('target-name').textContent = state.targetIsCamp ? 'RELIEF CAMP' : 'SURVIVORS';
+    this.get('target-distance').textContent = state.distance <= 40 ? `${Math.round(state.distance)} m` : '';
+    this.target.querySelector('.target-glyph')!.textContent = state.targetIsCamp ? '+' : '!';
+    if (state.message !== this.currentStatus) {
+      this.get('status-announcer').textContent = state.message;
+      this.currentStatus = state.message;
+    }
+  }
+
+  private showResult(state: HUDState, failed: boolean) {
+    const result = `${this.selectedLevel}:${state.total}:${state.safe}:${state.trips}:${Math.floor(state.time)}:${Math.round(state.integrity)}:${failed}`;
+    if (this.currentResult === result) return;
+    this.currentResult = result;
+    this.get('complete').classList.toggle('failed', failed);
+    this.get('complete-kicker').textContent = failed ? 'BOAT DAMAGED' : 'ALL SURVIVORS SAFE';
+    this.get('complete-heading').innerHTML = failed ? 'MISSION<br>FAILED' : 'MISSION<br>COMPLETE';
+    this.get('result-people').textContent = `${state.safe} / ${state.total}`;
+    this.get('result-trips').textContent = String(state.trips);
+    const seconds = Math.floor(state.time);
+    this.get('result-time').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+    this.get('result-integrity').textContent = `${Math.max(0, Math.round(state.integrity))}%`;
+    const stars = failed ? 0 : missionRating(state.time, state.integrity, this.levels.find(level => level.id === this.selectedLevel)?.parTime ?? state.total * 100);
+    this.get('result-rating').textContent = Array.from({ length: 3 }, (_, i) => i < stars ? '★' : '☆').join(' ');
+    this.get('result-rating').setAttribute('aria-label', `${stars} out of three stars`);
+    this.get('result-rating').classList.toggle('hidden', failed);
+    const hasNext = this.levels.some(level => level.id > this.selectedLevel && level.unlocked);
+    this.get('next-level-button').classList.toggle('hidden', failed || !hasNext);
+    this.get('restart-button').textContent = failed ? 'RESTART' : 'RETRY';
+    this.get('restart-button').classList.toggle('primary', failed || !hasNext);
+    this.get('restart-button').classList.toggle('secondary', !failed && hasNext);
+  }
+
+  private trapFocus(event: KeyboardEvent) {
+    if (event.key !== 'Tab' || ['PLAYING', 'RESCUING', 'UNLOADING'].includes(this.screen)) return;
+    const visible = [...this.container.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')].filter(button => button.offsetParent !== null);
+    if (!visible.length) return;
+    const first = visible[0], last = visible[visible.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
 }

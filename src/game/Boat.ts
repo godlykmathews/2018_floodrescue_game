@@ -2,16 +2,28 @@ import { BoxGeometry, Group, Mesh, MeshStandardMaterial } from 'three';
 import { AssetLoader } from '../utils/AssetLoader';
 import { assets } from './assets';
 import { BoatController } from './BoatController';
+import { Character } from './Character';
 
 export class Boat {
   readonly root = new Group();
   readonly visual = new Group();
-  readonly seat = new Group();
+  readonly seats = [new Group(), new Group(), new Group()] as const;
+  readonly seat = this.seats[0];
+  readonly boardingEdge = new Group();
+  readonly driver = new Character();
   readonly controller = new BoatController();
   constructor() {
     this.root.add(this.visual);
-    this.visual.add(this.seat);
-    this.seat.position.set(0, 0.45, 0.2);
+    this.seats.forEach((seat, index) => {
+      seat.name = `PASSENGER_SEAT_${index + 1}`;
+      seat.position.set(0, 0.50, 0.45 - index * 0.88);
+      this.visual.add(seat);
+    });
+    this.boardingEdge.name = 'BOARDING_EDGE';
+    this.boardingEdge.position.set(-0.57, 0.58, 0.8);
+    this.driver.root.name = 'BOAT_DRIVER';
+    this.driver.root.position.set(0, 0.5, 1.43);
+    this.visual.add(this.boardingEdge, this.driver.root);
   }
   async load(loader: AssetLoader) {
     const { object } = await loader.loadModel({
@@ -23,6 +35,7 @@ export class Boat {
     });
     object.position.y = -0.24;
     this.visual.add(object);
+    await this.driver.load(loader, { seated: true, variant: 0 });
   }
   update(time: number) {
     this.root.position.copy(this.controller.position);

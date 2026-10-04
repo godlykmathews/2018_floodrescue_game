@@ -12,9 +12,18 @@ export async function runBrowserRecovery(game: Game) {
   const key = (down: boolean) => window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { code: 'KeyW', bubbles: true }));
   const boat = game.boat.controller;
   try {
+    game.startLevel(2); game.skipIntro();
     window.dispatchEvent(new Event('focus'));
     key(true);
     await wait(700);
+    const beforePause = boat.position.clone();
+    const timeBeforePause = game.mission.missionTime;
+    const escape = () => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', bubbles: true }));
+    escape();
+    await wait(500);
+    report(`${boat.position.distanceTo(beforePause) < 0.001 && game.mission.missionTime === timeBeforePause && game.states.state === 'PAUSED' ? 'PASS' : 'FAIL'}: Escape pauses boat and mission time`);
+    escape();
+    report(`${game.states.state === 'PLAYING' ? 'PASS' : 'FAIL'}: Escape resumes the mission`);
     const beforeBlur = boat.position.clone();
     window.dispatchEvent(new Event('blur'));
     await wait(500);
@@ -38,13 +47,13 @@ export async function runBrowserRecovery(game: Game) {
     await wait(700);
     report(`${!game.paused && boat.speed < speedAtLoss * 0.9 ? 'PASS' : 'FAIL'}: stale throttle cleared after recovery`);
     key(false);
-    game.restart();
+    game.restart(); game.skipIntro();
     const afterRecovery = boat.position.clone();
     key(true);
     await wait(600);
     key(false);
     report(`${boat.position.distanceTo(afterRecovery) > 0.2 ? 'PASS' : 'FAIL'}: boat responds after graphics recovery`);
-    game.restart();
+    game.restart(); game.skipIntro();
     console.info('[Recovery playtest]', results.join(' | '));
   } catch (error) {
     report(`FAIL: ${error instanceof Error ? error.message : error}`);

@@ -3,7 +3,9 @@ import { BufferAttribute, BufferGeometry, DynamicDrawUsage, LineBasicMaterial, L
 /** One draw call for all rain streaks, recycled in a volume around the boat. */
 export class Rain {
   readonly mesh: LineSegments;
-  private readonly count = 1700;
+  private readonly count = 2300;
+  private activeCount = 1700;
+  private intensity = 1;
   private readonly positions = new Float32Array(this.count * 6);
   private readonly speeds = new Float32Array(this.count);
   private readonly lengths = new Float32Array(this.count);
@@ -22,6 +24,7 @@ export class Rain {
     const geometry = new BufferGeometry();
     this.attribute = new BufferAttribute(this.positions, 3).setUsage(DynamicDrawUsage);
     geometry.setAttribute('position', this.attribute);
+    geometry.setDrawRange(0, this.activeCount * 2);
     this.mesh = new LineSegments(geometry, new LineBasicMaterial({
       color: 0xccdedb, transparent: true, opacity: 0.29,
       depthWrite: false, fog: true,
@@ -30,12 +33,19 @@ export class Rain {
     this.mesh.renderOrder = 2;
   }
 
+  setIntensity(multiplier: number) {
+    this.intensity = Math.min(1.35, Math.max(0.5, multiplier));
+    this.activeCount = Math.min(this.count, Math.round(1700 * this.intensity));
+    this.mesh.geometry.setDrawRange(0, this.activeCount * 2);
+    (this.mesh.material as LineBasicMaterial).opacity = 0.29 + (this.intensity - 1) * 0.1;
+  }
+
   update(dt: number, center: Vector3) {
     this.mesh.position.set(center.x, 0, center.z);
-    for (let i = 0; i < this.count; i++) {
+    for (let i = 0; i < this.activeCount; i++) {
       const offset = i * 6;
       this.positions[offset] -= dt * 3.4;
-      this.positions[offset + 1] -= dt * this.speeds[i];
+      this.positions[offset + 1] -= dt * this.speeds[i] * (0.9 + this.intensity * 0.1);
       this.positions[offset + 2] += dt * 1.2;
       if (this.positions[offset + 1] < -0.2) {
         this.positions[offset] = Math.random() * 68 - 34;
