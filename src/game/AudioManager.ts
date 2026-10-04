@@ -1,17 +1,20 @@
+import { HELP_CALL_RADIUS } from './SurvivorCalls';
+
 export type AudioEffect = 'rescue' | 'complete' | 'thunder';
-type AudioName = AudioEffect | 'ambient' | 'rain' | 'boat';
-type LoopName = 'ambient' | 'rain' | 'boat' | 'helicopter';
+type AudioName = AudioEffect | 'ambient' | 'rain' | 'boat' | 'waves' | 'help';
+type LoopName = 'ambient' | 'rain' | 'boat' | 'helicopter' | 'waves';
 type SourceName = AudioName | 'helicopter';
 type Vehicle = 'boat' | 'helicopter';
 
 /** Set individual paths when audio files are available. Null makes no request. */
 export const AUDIO_ASSETS: Record<AudioName, string | null> = {
   ambient: null, rain: null, boat: null, thunder: null, rescue: null, complete: null,
+  waves: '/audio/waves_sound.mp3', help: '/audio/help_help.mp3',
 };
 /** Loaded on first helicopter use, after the same START gesture as all other audio. */
 export const HELICOPTER_AUDIO_ASSET = '/audio/dragon-studio-helicopter-sound-8d-372463.mp3';
 export const AUDIO_VOLUMES: Record<SourceName, number> = {
-  ambient: 0.035, rain: 0.14, boat: 0.045, thunder: 0.18, rescue: 0.07, complete: 0.065, helicopter: 0.075,
+  ambient: 0.035, rain: 0.14, boat: 0.045, thunder: 0.18, rescue: 0.07, complete: 0.065, helicopter: 0.24, waves: 0.18, help: 0.6,
 };
 interface Loop { source: AudioBufferSourceNode; gain: GainNode; filter?: BiquadFilterNode }
 const preferenceKey = 'kerala-flood-rescue-audio';
@@ -30,6 +33,8 @@ export class AudioManager {
   private buffers: Partial<Record<SourceName, AudioBuffer>> = {};
   private loops = new Map<LoopName, Loop>();
   private effects = new Set<AudioScheduledSourceNode>();
+  private help?: { source: AudioBufferSourceNode; gain: GainNode };
+  get helpPlaying() { return this.help !== undefined; }
   private requests = new AbortController();
 
   constructor() {
@@ -79,7 +84,7 @@ export class AudioManager {
   setVehicle(vehicle: Vehicle) {
     if (this.disposed || this.vehicle === vehicle) return;
     this.vehicle = vehicle;
-    if (vehicle === 'helicopter') this.ensureHelicopter();
+    if (vehicle === 'helicopter') { this.stopHelp(); this.ensureHelicopter(); }
     this.refresh();
   }
 
@@ -129,6 +134,45 @@ export class AudioManager {
     }
   }
 
+  /** One short nearby voice, never looped or synthesized when the asset is missing. */
+  playHelp(distance: number): boolean {
+    const ctx = this.context, buffer = this.buffers.help;
+    if (!ctx || ctx.state !== 'running' || !this.master || !buffer || !this.playing || !this.enabled
+      || this.disposed || this.vehicle !== 'boat' || this.help || !Number.isFinite(distance)
+      || distance < 0 || distance >= HELP_CALL_RADIUS) return false;
+    const source = ctx.createBufferSource(), gain = ctx.createGain();
+    source.buffer = buffer; source.loop = false;
+    gain.gain.value = this.helpVolume(distance);
+    source.connect(gain).connect(this.master);
+    this.help = { source, gain };
+    this.effects.add(source);
+    source.onended = () => {
+      this.effects.delete(source); source.disconnect(); gain.disconnect();
+      if (this.help?.source === source) this.help = undefined;
+    };
+    source.start();
+    return true;
+  }
+
+  updateHelpDistance(distance: number | null) {
+    if (!this.help) return;
+    if (distance === null || !Number.isFinite(distance) || distance < 0 || distance >= HELP_CALL_RADIUS
+      || !this.playing || !this.enabled || this.vehicle !== 'boat') { this.stopHelp(); return; }
+    this.help.gain.gain.setTargetAtTime(this.helpVolume(distance), this.context!.currentTime, 0.06);
+  }
+
+  private helpVolume(distance: number) {
+    return AUDIO_VOLUMES.help * Math.min(1, Math.max(0, (HELP_CALL_RADIUS - distance) / (HELP_CALL_RADIUS * 2 / 3)));
+  }
+  private stopHelp() {
+    const voice = this.help;
+    if (!voice) return;
+    this.help = undefined;
+    this.effects.delete(voice.source);
+    try { voice.source.stop(); } catch { /* The short call may already have ended. */ }
+    voice.source.disconnect(); voice.gain.disconnect();
+  }
+
   private async loadAsset(name: SourceName, path: string) {
     try {
       const response = await fetch(path, { signal: this.requests.signal });
@@ -136,7 +180,7 @@ export class AudioManager {
       const buffer = await this.context!.decodeAudioData(await response.arrayBuffer());
       if (this.disposed) return;
       this.buffers[name] = buffer;
-      if (name === 'rain' || name === 'boat' || name === 'ambient' || name === 'helicopter') this.startLoop(name, buffer);
+      if (name === 'rain' || name === 'boat' || name === 'ambient' || name === 'helicopter' || name === 'waves') this.startLoop(name, buffer);
     } catch (error) {
       if (!this.disposed) console.warn(`[Kerala Flood Rescue] Could not load audio ${path}; using available ambience/cues.`, error);
     }
@@ -148,10 +192,12 @@ export class AudioManager {
     if (previous) { previous.source.stop(); previous.source.disconnect(); previous.gain.disconnect(); previous.filter?.disconnect(); }
     const source = ctx.createBufferSource(), gain = ctx.createGain();
     source.buffer = buffer; source.loop = true; gain.gain.value = 0;
+    // The supplied rotor recording fades at both ends. Loop its steady middle.
+    if (name === 'helicopter' && buffer.duration > 8.5) { source.loopStart = 0.7; source.loopEnd = 8.5; }
     let filter: BiquadFilterNode | undefined;
     if (cutoff) { filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = cutoff; source.connect(filter).connect(gain); }
     else source.connect(gain);
-    gain.connect(this.master!); this.loops.set(name, { source, gain, filter }); source.start(); this.refresh();
+    gain.connect(this.master!); this.loops.set(name, { source, gain, filter }); source.start(0, source.loopStart || 0); this.refresh();
   }
 
   private refresh() {
@@ -160,7 +206,8 @@ export class AudioManager {
     this.master!.gain.setTargetAtTime(this.enabled ? 1 : 0, ctx.currentTime, 0.04);
     for (const [name, loop] of this.loops) {
       const activeVehicle = (name !== 'boat' || this.vehicle === 'boat') && (name !== 'helicopter' || this.vehicle === 'helicopter');
-      loop.gain.gain.setTargetAtTime(this.playing && activeVehicle ? AUDIO_VOLUMES[name] : 0, ctx.currentTime, 0.15);
+      const heightMix = name === 'waves' && this.vehicle === 'helicopter' ? 0.25 : 1;
+      loop.gain.gain.setTargetAtTime(this.playing && activeVehicle ? AUDIO_VOLUMES[name] * heightMix : 0, ctx.currentTime, 0.15);
     }
     this.update(this.speed * 8.2);
   }
@@ -170,6 +217,7 @@ export class AudioManager {
     source.onended = () => { this.effects.delete(source); source.disconnect(); nodes.forEach(node => node.disconnect()); };
   }
   private stopEffects() {
+    this.stopHelp();
     for (const effect of this.effects) { try { effect.stop(); } catch { /* Already ended. */ } }
     this.effects.clear();
   }

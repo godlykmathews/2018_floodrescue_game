@@ -13,6 +13,7 @@ import { Wake } from './Wake';
 import { GameStateManager, type GameState } from './GameStateManager';
 import { LevelManager } from './LevelManager';
 import { AudioManager } from './AudioManager';
+import { SurvivorCalls } from './SurvivorCalls';
 import { IntroVideo } from './IntroVideo';
 import { AidSupplies } from './AidSupplies';
 import { Helicopter } from './Helicopter';
@@ -41,6 +42,8 @@ export class Game {
   readonly states = new GameStateManager();
   readonly levels = new LevelManager();
   readonly audio = new AudioManager();
+  private readonly survivorCalls = new SurvivorCalls();
+  private callingSurvivor: string | null = null;
   readonly supplies = new AidSupplies();
   mission = new RescueMission(this.boat, this.survivors.active, this.supplies);
   readonly ui: UI;
@@ -174,6 +177,7 @@ export class Game {
   }
   private showState() {
     this.audio.setVehicle(this.vehicles.active);
+    if (this.states.state !== 'PLAYING') this.suspendSurvivorCalls();
     this.audio.setPlaying(this.states.simulating && !this.paused);
     this.ui.setScreen(this.states.state, this.levels.current, this.getHUD());
     if (!this.states.simulating) { this.siteMarkers.forEach(marker => { marker.hidden = true; }); this.helipadMarker.hidden = true; }
@@ -182,6 +186,7 @@ export class Game {
     this.keys.clear(); this.lastTime = 0;
     const interrupted = this.focusPaused || document.hidden;
     this.introVideo.setSuspended(this.paused);
+    if (this.paused) this.suspendSurvivorCalls();
     this.audio.setPlaying(this.states.simulating && !this.paused);
     this.ui.setPaused(this.contextLost ? 'graphics' : interrupted && this.states.simulating ? 'focus' : null);
   }
@@ -190,7 +195,7 @@ export class Game {
     const level = this.levels.select(id);
     this.introVideo.stop();
     void this.audio.unlock();
-    this.mission.reset(); this.resetVehicles();
+    this.mission.reset(); this.resetVehicles(); this.resetSurvivorCalls();
     this.survivors.configure(level.counts, true);
     this.supplies.reset(level.id);
     this.mission = new RescueMission(this.boat, this.survivors.active, this.supplies);
@@ -227,7 +232,7 @@ export class Game {
   resume() { this.states.resume(); this.keys.clear(); this.lastTime = 0; this.showState(); this.renderer.domElement.focus(); }
   mainMenu() {
     this.introVideo.stop();
-    this.states.transition('MAIN_MENU'); this.keys.clear(); this.mission.reset(); this.wake.reset(); this.resetVehicles();
+    this.states.transition('MAIN_MENU'); this.keys.clear(); this.mission.reset(); this.wake.reset(); this.resetVehicles(); this.resetSurvivorCalls();
     this.showState();
   }
   private syncMissionState() {
@@ -239,6 +244,22 @@ export class Game {
       this.states.transition(next); this.showState();
       if (next === 'LEVEL_COMPLETE') this.audio.play('complete');
     }
+  }
+  private suspendSurvivorCalls() {
+    this.survivorCalls.update(0, [], this.boat.controller.position, false);
+    this.callingSurvivor = null; this.audio.updateHelpDistance(null);
+  }
+  private resetSurvivorCalls() {
+    this.survivorCalls.reset(); this.callingSurvivor = null; this.audio.updateHelpDistance(null);
+  }
+  private updateSurvivorCalls(dt: number) {
+    const eligible = this.states.state === 'PLAYING' && this.vehicles.active === 'boat' && this.audio.enabled;
+    const listener = this.boat.controller.position;
+    const caller = this.survivors.active.find(person => person.id === this.callingSurvivor && person.state === 'WAITING');
+    this.audio.updateHelpDistance(eligible && caller ? caller.position.distanceTo(listener) : null);
+    if (!this.audio.helpPlaying) this.callingSurvivor = null;
+    const call = this.survivorCalls.update(dt, this.survivors.active, listener, eligible);
+    if (call && this.audio.playHelp(call.distance)) this.callingSurvivor = call.id;
   }
   private resetVehicles() {
     this.vehicles.reset(); this.helicopter.controller.reset(this.helipad.landingPosition);
@@ -344,6 +365,7 @@ export class Game {
       this.updateBoatVisual(); this.mission.update(dt);
       this.syncMissionState();
       this.audio.update(this.vehicles.active === 'boat' ? this.boat.controller.speed : 0);
+      this.updateSurvivorCalls(dt);
       this.wake.update(dt, this.elapsed, this.boat.controller);
     } else {
       const angle = this.elapsed * .018;

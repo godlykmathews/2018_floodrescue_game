@@ -1,46 +1,46 @@
-# Optional flood-rescue audio
+# Flood-rescue audio
 
-Music integration is deferred. The game currently generates quiet rain, boat/water
-ambience, a low thunder rumble, and restrained rescue/completion tones with Web
-Audio. No audio files are requested by default, and no sound or AudioContext is
-created before a player clicks START RESCUE (or a level's start button).
+The supplied recordings are connected through `src/game/AudioManager.ts`.
+Audio starts only after a player clicks START RESCUE; menus and the mission
+briefing stay silent. Music/BGM remains deferred.
 
-To use recorded assets later, put them in this folder and set the corresponding
-`AUDIO_ASSETS` value in `src/game/AudioManager.ts`:
+| File | Use |
+| --- | --- |
+| `waves_sound.mp3` | Continuous flood-water ambience alongside generated rain. Quieter while flying. |
+| `dragon-studio-helicopter-sound-8d-372463.mp3` | Rotor ambience while controlling the helicopter. Loaded on first use; loops 0.7–8.5 seconds to omit the recording's faded ends. |
+| `help_help.mp3` | Short, non-looping call from a nearby waiting survivor. |
 
-| Config key | Suggested public URL | Purpose |
-| --- | --- | --- |
-| `ambient` | `/audio/ambient-flood.mp3` | Optional future restrained ambience/music loop |
-| `rain` | `/audio/rain.mp3` | Continuous environmental rain |
-| `boat` | `/audio/boat.mp3` | Boat/oar/water loop; volume follows speed |
-| `thunder` | `/audio/thunder.mp3` | Occasional weather cue |
-| `rescue` | `/audio/rescue.mp3` | Passenger safely aboard |
-| `complete` | `/audio/mission-complete.mp3` | Everyone safely delivered |
+Help calls use one global schedule in `SurvivorCalls.ts`: stay within 18 metres
+of a waiting survivor for a randomized 5–9 seconds before the first call, then
+allow at least 25–40 seconds between calls. Nearby groups share that cooldown,
+so several people cannot shout over each other. Calls get quieter with distance
+and stop outside hearing range or when that person starts boarding. They do
+not play during treatment, unloading, helicopter flight, vehicle switching,
+menus, pause, or mute. Safe survivors and passengers never call. Restart resets
+the schedule; pauses do not accumulate overdue calls.
 
-Leave a mapping `null` to keep its generated fallback. There is deliberately no
-synthetic fallback for `ambient`, so this slot stays silent until configured.
-Missing or invalid configured files log a warning and retain generated sound.
-Use loopable recordings for rain and boat. `AUDIO_VOLUMES` controls mix levels;
-rain should remain more prominent than future background music. Optional assets
-are decoded once after the start gesture and reused. No third-party audio is
-bundled, so add recordings you have permission to use.
+Recordings are decoded once and reused. All audio respects the session audio
+toggle, Escape pause, focus loss, and graphics recovery. Missing recordings
+log a warning; rain and boat ambience retain generated fallbacks. Missing help
+audio stays silent rather than producing an unrelated fallback tone.
+
+`AUDIO_ASSETS` maps wave/help recordings and optional future rain, boat, thunder,
+rescue, completion, and ambient/music files. Leave unused mappings `null`.
+`AUDIO_VOLUMES` controls the mix; the rotor recording has a quieter source level
+than the generated rain, so gain values alone do not measure perceived loudness.
 
 Integration:
 
-- Create one `AudioManager`; read `enabled` for menu labels.
-- Call `void audio.unlock()` **directly inside the real start click handler**.
-- Call `setPlaying(true)` during PLAYING, RESCUING and UNLOADING; use `false` for
-  menus, intros, pause, focus/context loss, results, and failure.
-- Call `update(boatSpeed)` each gameplay frame and `play('rescue')` after boarding.
-- On completion, call `setPlaying(false)` **before** `play('complete')` so the
-  completion cue plays over the quiet result screen.
-- `play('thunder')` is available for occasional Level 3 weather. Effects other
-  than completion are suppressed outside gameplay.
-- `toggle()` mutes everything and returns the new setting. Session storage keeps
-  the preference within this browser session; it also works with storage denied.
-- `dispose()` aborts pending loads, stops sources, and closes the audio context.
+- Call `audio.unlock()` from a real start click, never on page load.
+- `setPlaying(false)` silences loops and stops effects on menus/pause/results.
+- `setVehicle('boat' | 'helicopter')` changes vehicle ambience.
+- `update(boatSpeed)` controls the original boat sound.
+- `playHelp(distance)` starts one decoded nearby voice; `updateHelpDistance(null)`
+  stops it when the caller is no longer eligible. Game updates its distance every frame.
+- `play('rescue' | 'complete' | 'thunder')` retains the existing restrained cues.
+- `dispose()` aborts downloads, stops sources, and closes the audio context.
 
-Pause silences the ambience and stops active effects. Starting an audio effect
-never unlocks audio on its own. Gameplay remains usable if Web Audio is blocked
-or unavailable. This prototype uses a simple stereo mix; spatial audio and BGM
-can be added later without changing the mission systems.
+The developer-only `/?audio-smoke=1` fixture exposes RUN AUDIO CHECK. Click it
+to test actual browser decoding and source playback, near/far calls, cooldown,
+mute/pause, and rotor looping. Its fixed positions are audio test fixtures, not
+a boat-navigation playthrough.

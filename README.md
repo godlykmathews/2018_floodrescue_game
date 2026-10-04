@@ -80,9 +80,11 @@ The newer environment assets add drifting fallen trees, three partly submerged c
 
 ## Audio
 
-Music integration is deferred. Quiet generated rain/water ambience and short rescue, completion, and thunder cues are available after the start gesture. Audio On/Off is remembered within the browser session. The menu itself never starts audio.
+The supplied wave recording loops quietly with generated rain, and the helicopter recording plays while flying. Its steady middle section is looped to avoid the faded ends. All sound starts after a user gesture, follows pause and focus changes, and respects the session Audio On/Off setting. BGM remains deferred.
 
-Future recordings go in `public/audio/`; see its README and the `AUDIO_ASSETS` / `AUDIO_VOLUMES` mappings in `src/game/AudioManager.ts`. Null mappings make no requests, and missing configured recordings leave playable generated fallbacks. No BGM is bundled. The user-supplied helicopter recording is loaded on first helicopter use and follows pause and mute.
+Waiting survivors occasionally call for help when the boat is within 18 metres. The first call has a random 5–9 second approach delay; subsequent calls share one random 25–40 second cooldown across all groups. The short clip never loops or overlaps. It fades with distance and stops outside range, during rescue/treatment/unloading, helicopter use, pause, or mute. People aboard or safe at camp remain silent.
+
+Recordings are decoded once and reused. Missing files warn clearly and leave the game playable. See `public/audio/README.md` and the audio mappings for filenames and mix settings. Generated rescue, completion, and thunder cues remain available.
 
 ## Architecture and assets
 
@@ -94,7 +96,7 @@ Future recordings go in `public/audio/`; see its README and the `AUDIO_ASSETS` /
 - `BoatController.ts`, `CameraController.ts`: original arcade motion and camera, extended with optional current and bounded impact feedback.
 - `World.ts`, `Water.ts`, `Rain.ts`, `Wake.ts`, `ReliefCamp.ts`: village, hazards and atmosphere.
 - `AidSupplies.ts`: cached kit and heart-shaped coin visuals, proximity pickups, treatment parcel, held kits/coins and camp donations.
-- `UI.ts`, `AudioManager.ts`: DOM menus/HUD and gesture-unlocked audio.
+- `UI.ts`, `AudioManager.ts`, `SurvivorCalls.ts`: DOM menus/HUD, gesture-unlocked audio and nearby survivor call timing.
 - `AssetLoader.ts`: cached asynchronous GLB sources, `SkeletonUtils.clone`, normalization, loading progress and warned fallbacks.
 
 Original GLBs are preserved in `models/`. The boat's bow originally faces +Z, so its model is rotated by π for the game's −Z forward direction. The operator uses the supplied sitting-man skeleton and seated idle clip. Rescue groups mix farmers and women, with independent standing, seated and log-gripping poses; each level includes women. A mother and child already sheltered at camp are decorative NPCs and do not count toward the mission or passenger capacity.
@@ -110,6 +112,7 @@ The boat, original house, farmer, tree and grass assets are referenced by Vite; 
 Development-only test URLs:
 
 - `/?smoke=1`: selects Level 2 through its menu, then uses keyboard events and real boat movement to collect three people, attempt a fourth, unload, return, collect the remaining three, and deliver all six in two trips. It also collects supplies using real boat movement, treats both injured survivors, donates recovered coins, and verifies scene visibility, seat parenting and people remaining at camp. A compact status overlay reports PASS/FAIL and average frame rate. Allow about five minutes; keep the tab active.
+- `/?audio-smoke=1`: click RUN AUDIO CHECK to exercise actual recordings, nearby help timing, distance limits, mute/pause and rotor looping in a fixed audio fixture.
 - `/?helicopter-smoke=1`: drives from the normal spawn to the helipad, switches, flies, pauses, returns and lands, switches back, and restarts using real keyboard input. Verifies parked-boat and mission/supply preservation.
 - `/?world-view=helipad`: fixed dock view for inspecting the brutalist roof and switching manually; a render fixture, not a playthrough.
 - `/?recovery=1`: verifies Escape pause/resume, mission-time freezing, focus loss, real WebGL context loss/restoration, cleared throttle and movement after recovery.

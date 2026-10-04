@@ -1,0 +1,4 @@
+{
+  "result": "AUDIO FIXTURE · PASS · 65.7s\nHelp calls: 2 · PLAYING\nPASS · Real waves 17.47s decoded, nonzero samples, looping\nPASS · Real rotor 10.03s decoded; one reusable loop, boat transfer fades it out\nPASS · Ten gameplay seconds outside survivor range: no help\nPASS · Real help 1.72s; first nearby call after 8.1s\nPASS · Nearby repeat spaced 36.7s apart\nPASS · Leaving survivor range immediately stops the current voice\nPASS · Mute silences the mix; pause silences loops/help and freezes mission time\nPASS · Fresh scheduler: nearby boarding/safe survivors stay silent",
+  "errors": []
+}
