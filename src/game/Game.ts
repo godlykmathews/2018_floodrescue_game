@@ -14,6 +14,7 @@ import { GameStateManager, type GameState } from './GameStateManager';
 import { LevelManager } from './LevelManager';
 import { AudioManager } from './AudioManager';
 import { IntroVideo } from './IntroVideo';
+import { AidSupplies } from './AidSupplies';
 
 export class Game {
   readonly scene = new Scene();
@@ -32,7 +33,8 @@ export class Game {
   readonly states = new GameStateManager();
   readonly levels = new LevelManager();
   readonly audio = new AudioManager();
-  mission = new RescueMission(this.boat, this.survivors.active);
+  readonly supplies = new AidSupplies();
+  mission = new RescueMission(this.boat, this.survivors.active, this.supplies);
   readonly ui: UI;
   readonly introVideo: IntroVideo;
   private projected = new Vector3();
@@ -82,7 +84,11 @@ export class Game {
     Object.assign(sun.shadow.camera, { left: -65, right: 65, top: 65, bottom: -65, far: 110 });
     sun.shadow.bias = -0.001;
     this.scene.add(sun);
-    this.scene.add(this.water.mesh, this.wake.root, this.boat.root, this.world.root, this.rain.mesh, this.survivors.root, this.camp.root);
+    this.scene.add(this.water.mesh, this.wake.root, this.boat.root, this.world.root, this.rain.mesh, this.survivors.root, this.camp.root, this.supplies.root);
+    this.supplies.onPickup = (kind, value) => {
+      this.mission.notify(kind === 'kit' ? '+1 FIRST AID KIT' : `+${value} COINS · TAKE TO RELIEF CAMP`);
+      this.audio.play('rescue');
+    };
     this.world.colliders.push(...this.survivors.colliders, this.camp.collider);
     this.boat.controller.onCollision = speed => {
       if (!this.states.simulating) return;
@@ -134,7 +140,7 @@ export class Game {
   }
   async start() {
     let loaded = 0;
-    const totalModels = 73;
+    const totalModels = 80 + AidSupplies.MODEL_LOAD_COUNT;
     this.loader.onProgress = (name, fraction) => {
       this.ui.setLoading(`Loading ${name.replace(/_/g, ' ')} · ${Math.round(fraction * 100)}%`, Math.min(1, (loaded + fraction) / totalModels));
     };
@@ -143,6 +149,7 @@ export class Game {
     await this.world.load(this.loader);
     await this.survivors.load(this.loader);
     await this.camp.load(this.loader);
+    await this.supplies.load(this.loader);
     this.ready = true;
     this.ui.loaded();
     this.showState();
@@ -167,8 +174,9 @@ export class Game {
     this.introVideo.stop();
     void this.audio.unlock();
     this.mission.reset();
-    this.survivors.configure(level.counts);
-    this.mission = new RescueMission(this.boat, this.survivors.active);
+    this.survivors.configure(level.counts, true);
+    this.supplies.reset(level.id);
+    this.mission = new RescueMission(this.boat, this.survivors.active, this.supplies);
     this.mission.onRescue = () => this.audio.play('rescue');
     this.lastThunder = 0;
     this.world.setDifficulty(level);
@@ -207,7 +215,7 @@ export class Game {
   }
   private syncMissionState() {
     const phase = this.mission.phase;
-    const next: GameState = phase === 'boarding' ? 'RESCUING' : phase === 'unloading' ? 'UNLOADING'
+    const next: GameState = phase === 'boarding' || phase === 'treating' ? 'RESCUING' : phase === 'unloading' ? 'UNLOADING'
       : phase === 'complete' ? 'LEVEL_COMPLETE' : phase === 'failed' ? 'LEVEL_FAILED' : 'PLAYING';
     if (this.states.state !== next) {
       this.states.transition(next); this.showState();
@@ -238,7 +246,7 @@ export class Game {
     const x = Math.max(85, Math.min(innerWidth - 85, (this.projected.x * .5 + .5) * innerWidth));
     const y = behind ? innerHeight * .47 : Math.max(150, Math.min(innerHeight - 150, (-this.projected.y * .5 + .5) * innerHeight));
     this.ui.target.style.left = `${x}px`; this.ui.target.style.top = `${y}px`;
-    this.ui.target.style.display = !gameplay || ['boarding', 'unloading'].includes(this.mission.phase) ? 'none' : '';
+    this.ui.target.style.display = !gameplay || ['treating', 'boarding', 'unloading'].includes(this.mission.phase) ? 'none' : '';
     this.ui.target.classList.toggle('offscreen', behind || Math.abs(this.projected.x) > .95);
     this.ui.target.dataset.direction = x < innerWidth / 2 ? 'left' : 'right';
   }
@@ -269,6 +277,8 @@ export class Game {
     }
     this.camp.update(this.elapsed, this.mission.passengers.count > 0);
     this.water.update(this.elapsed); this.world.update(this.elapsed, dt); this.survivors.update(this.elapsed);
+    this.supplies.update(dt, this.elapsed, this.boat.controller, this.states.simulating);
+    this.camp.setDonation(this.supplies.donated);
     const thunder = Math.floor(this.mission.missionTime / 28);
     if (this.levels.current.id === 3 && this.states.simulating && thunder > this.lastThunder) {
       this.lastThunder = thunder; this.audio.play('thunder');

@@ -50,6 +50,16 @@ All levels are unlocked. Configuration supports locking them later. Debris, curr
 
 Escape pauses boat motion, transfers, mission time, and weather. Switching away from the game or losing the WebGL context also pauses simulation and clears held keys. Results show people delivered, unloading trips, elapsed mission time, boat integrity, and rating. Continue with Next Level, Retry, or Main Menu.
 
+## First aid and camp support
+
+Drive close to floating medical kits and heart-shaped coins to collect them. Kits use the supplied `first_aid_kit.glb`; coins use `life-up_heart_-_super_mario_odyssey.glb`. Each heart-shaped pickup contributes 25 or 50 coins to your held balance for donation at camp. Pickups do not use passenger seats.
+
+An amber medical cross marks an injured survivor. The levels include 1, 2 and 3 injured people respectively. Stop and align as usual, then press **E** to give first aid: a visible kit moves toward the survivor over 1.6 seconds, and one kit is consumed when treatment finishes. Press **E** again to board them. If you have no kit, the destination marker points to the nearest uncollected kit. There are six reachable kits, more than the mission needs, and no injury countdown.
+
+At camp, recovered coins are donated when you press **E** to unload. You can also stop in the camp zone and press **E** to donate without passengers. The HUD and final statistics show the donated total and people treated; funded supply crates appear on the camp deck. Donations are optional support, separate from the existing goal of bringing every survivor to safety. Restart resets all pickups, treatments and donations.
+
+The newer environment assets add drifting fallen trees, three partly submerged cars, and a dog, cat and chickens on supported dry refuges. Trees and cars have collision proxies. Animals are ambient scene inhabitants, not additional passengers or mission objectives. The source animal models have no animation clips and remain in their authored poses.
+
 ## Audio
 
 Music integration is deferred. Quiet generated rain/water ambience and short rescue, completion, and thunder cues are available after the start gesture. Audio On/Off is remembered within the browser session. The menu itself never starts audio.
@@ -64,6 +74,7 @@ Future recordings go in `public/audio/`; see its README and the `AUDIO_ASSETS` /
 - `Boat.ts`, `Character.ts`: permanent driver, three named seat transforms, reusable character instances and seated pose.
 - `BoatController.ts`, `CameraController.ts`: original arcade motion and camera, extended with optional current and bounded impact feedback.
 - `World.ts`, `Water.ts`, `Rain.ts`, `Wake.ts`, `ReliefCamp.ts`: village, hazards and atmosphere.
+- `AidSupplies.ts`: cached kit and heart-shaped coin visuals, proximity pickups, treatment parcel, held kits/coins and camp donations.
 - `UI.ts`, `AudioManager.ts`: DOM menus/HUD and gesture-unlocked audio.
 - `AssetLoader.ts`: cached asynchronous GLB sources, `SkeletonUtils.clone`, normalization, loading progress and warned fallbacks.
 
@@ -79,11 +90,11 @@ The boat, original house, farmer, tree and grass assets are referenced by Vite; 
 
 Development-only test URLs:
 
-- `/?smoke=1`: selects Level 2 through its menu, then uses keyboard events and real boat movement to collect three people, attempt a fourth, unload, return, collect the remaining three, and deliver all six in two trips. It verifies scene visibility, seat parenting and people remaining at camp. A compact status overlay reports PASS/FAIL and average frame rate. Allow about five minutes; keep the tab active.
+- `/?smoke=1`: selects Level 2 through its menu, then uses keyboard events and real boat movement to collect three people, attempt a fourth, unload, return, collect the remaining three, and deliver all six in two trips. It also collects supplies using real boat movement, treats both injured survivors, donates recovered coins, and verifies scene visibility, seat parenting and people remaining at camp. A compact status overlay reports PASS/FAIL and average frame rate. Allow about five minutes; keep the tab active.
 - `/?recovery=1`: verifies Escape pause/resume, mission-time freezing, focus loss, real WebGL context loss/restoration, cleared throttle and movement after recovery.
 
 `/?camp-view=1` seeds a fixed first-delivery scene for checking camp visibility when the chase camera looks through the canopy. It is a render fixture, not a playthrough; C toggles view and R returns to a normal mission.
 
-`/?world-view=log`, `/?world-view=crew` and `/?world-view=wide` are additional render fixtures for log survivors, the loaded boat and the expanded area. They are not playthroughs; R returns to a normal mission.
+`/?world-view=log`, `/?world-view=crew` and `/?world-view=wide` are additional render fixtures for log survivors, the loaded boat and the expanded area. The `aid`, `animals`, `car` and `tree` values focus on the newer interactions and assets. They are not playthroughs; R returns to a normal mission.
 
 These helpers are excluded from production builds. Unit tests also cover all three level populations, the complete nine-person/three-trip mission, restart during every survivor state, failure, cached loading/fallbacks, collision cooldown, fair current, and moving debris bounds.

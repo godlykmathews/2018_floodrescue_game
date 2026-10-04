@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Vector3 } from 'three';
+import { Box3, BoxGeometry, Group, Mesh, Vector3 } from 'three';
 import { BoatController } from '../src/game/BoatController.ts';
 import { World } from '../src/game/World.ts';
 import { Rain } from '../src/game/Rain.ts';
 import { LEVELS } from '../src/game/LevelManager.ts';
+import type { AssetLoader, ModelOptions } from '../src/utils/AssetLoader.ts';
 
 const idle = { throttle: 0, steer: 0, brake: false };
 const wall = { minX: -10, maxX: 10, minZ: -5, maxZ: 0 };
@@ -146,4 +147,63 @@ test('weather difficulty increases streak count within one bounded rain geometry
   assert.ok(geometry.drawRange.count <= geometry.getAttribute('position').count);
   rain.setIntensity(1);
   assert.equal(geometry.drawRange.count, 3400);
+});
+
+test('fallen trees share the bounded hazard pool and leave supply pickup lanes open', () => {
+  const world = new World();
+  const trees = world.root.children.filter(object => object.name.startsWith('FLOATING_TREE_'));
+  assert.equal(trees.length, 2);
+  world.setDifficulty(LEVELS[0]);
+  assert.equal(trees.filter(tree => tree.visible).length, 1, 'the first level should show a real fallen-tree hazard');
+  world.setDifficulty(LEVELS[2]);
+  const pickups = [[0, 14], [0, -9], [-7, 4.2], [26.5, 2], [24, 14], [0, 34],
+    [0, 21], [0, 1], [8, 12.8], [26.5, -3], [24, 16], [40, 10]];
+  for (let frame = 0; frame < 1800; frame++) {
+    world.update(frame / 30, 1 / 30);
+    for (const tree of trees) {
+      const collider = world.colliders.find(box => Math.abs((box.minX + box.maxX) / 2 - tree.position.x) < 1e-9
+        && Math.abs((box.minZ + box.maxZ) / 2 - tree.position.z) < 1e-9);
+      assert.ok(collider, 'a floating tree must keep its collision proxy as it drifts');
+      for (const [x, z] of pickups) {
+        const closestX = Math.max(collider.minX, Math.min(x, collider.maxX));
+        const closestZ = Math.max(collider.minZ, Math.min(z, collider.maxZ));
+        assert.ok(Math.hypot(x - closestX, z - closestZ) > 2.5, 'collectibles must remain reachable around floating trees');
+      }
+    }
+  }
+});
+
+test('animals stand on supported refuge decks and submerged cars have solid footprints', async () => {
+  const world = new World();
+  const loader = { async loadModel(options: ModelOptions) {
+    // Model-space normalization belongs to AssetLoader tests. This fixture uses
+    // floor-pivot boxes to check World placement independently of asset fetching.
+    const object = new Group();
+    const mesh = new Mesh(new BoxGeometry(1, options.size ?? 1, 1));
+    mesh.position.y = (options.size ?? 1) / 2;
+    object.add(mesh);
+    if (options.position) object.position.fromArray(options.position);
+    return { object, animations: [], fallback: false };
+  } } as AssetLoader;
+  await world.load(loader);
+  const refuges = world.root.children.filter(object => object.name === 'ANIMAL_REFUGE').map(object => new Box3().setFromObject(object));
+  const animals = world.root.children.filter(object => object.name.startsWith('SHELTERED_'));
+  assert.equal(animals.length, 4);
+  for (const animal of animals) {
+    const { x, y, z } = animal.position;
+    assert.ok(refuges.some(deck => x > deck.min.x && x < deck.max.x && z > deck.min.z && z < deck.max.z
+      && Math.abs(y - deck.max.y) < 1e-6), `${animal.name} must have a dry support directly under its feet`);
+    assert.ok(y >= 0.9, 'refuge decks must clear the animated flood waves');
+  }
+  const cars = world.root.children.filter(object => object.name === 'SUBMERGED_CAR');
+  assert.equal(cars.length, 3);
+  for (const car of cars) {
+    const bounds = new Box3().setFromObject(car);
+    assert.ok(car.position.y < 0, 'the wheels and lower body should be submerged');
+    assert.ok(world.colliders.some(box => box.minX === bounds.min.x && box.maxX === bounds.max.x
+      && box.minZ === bounds.min.z && box.maxZ === bounds.max.z), 'each car must block the boat along its visible footprint');
+    for (const [x, z] of [[0, -18], [-15, 4.2], [27.8, -12], [24, 19.5]]) {
+      assert.ok(Math.hypot(car.position.x - x, car.position.z - z) > 8, 'cars must not seal a mission dock');
+    }
+  }
 });

@@ -9,6 +9,7 @@ export class ReliefCamp {
   readonly collider: Collider = { minX: 19, maxX: 29, minZ: 22.5, maxZ: 27.5 };
   readonly ring: Mesh;
   readonly shelteredFamily = new Character();
+  private fundedSupplies: Mesh[] = [];
   private readonly canopy: Mesh<BoxGeometry, MeshStandardMaterial>;
   private readonly sign: Sprite;
   private readonly sightline = new Ray();
@@ -56,7 +57,13 @@ export class ReliefCamp {
     this.shelteredFamily.root.name = 'SHELTERED_FAMILY';
     this.shelteredFamily.root.position.set(27.65, 0.88, 25.9);
     this.root.add(this.shelteredFamily.root);
+    for (let i = 0; i < 3; i++) {
+      const supply = new Mesh(new BoxGeometry(0.65, 0.48, 0.65), new MeshStandardMaterial({ color: i % 2 ? 0xe1d6b7 : 0x8ba68b, roughness: 0.95 }));
+      supply.name = 'DONATED_CAMP_SUPPLIES'; supply.position.set(19.9, 1.12 + i * 0.49, 26.1);
+      supply.visible = false; this.fundedSupplies.push(supply); this.root.add(supply);
+    }
   }
+  setDonation(coins: number) { this.fundedSupplies.forEach((crate, index) => { crate.visible = coins >= [25, 75, 150][index]; }); }
   async load(loader: AssetLoader) { await this.shelteredFamily.load(loader, { model: 'mother-child' }); }
   /** Reveal the boat when the chase camera passes behind the camp roof. */
   updateView(cameraPosition: Vector3, boatPosition: Vector3, dt = 1 / 60) {

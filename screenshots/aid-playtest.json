@@ -1,0 +1,44 @@
+[
+  {
+    "level": "info",
+    "message": "[Smoke] A · board two passed · 2/3 aboard · 0/6 safe · 0 trips",
+    "timestamp": "2026-10-04T10:36:38.435Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791110139415"
+  },
+  {
+    "level": "info",
+    "message": "[Smoke] B · third passenger passed · 3/3 aboard · 0/6 safe · 0 trips",
+    "timestamp": "2026-10-04T10:37:16.219Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791110139415"
+  },
+  {
+    "level": "info",
+    "message": "[Smoke] C · reject fourth passenger passed · 3/3 aboard · 0/6 safe · 0 trips",
+    "timestamp": "2026-10-04T10:38:26.986Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791110139415"
+  },
+  {
+    "level": "info",
+    "message": "[Smoke] CAMP · first delivery passed · 0/3 aboard · 3/6 safe · 1 trips",
+    "timestamp": "2026-10-04T10:39:16.487Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791110139415"
+  },
+  {
+    "level": "info",
+    "message": "[Smoke] C · board remaining three passed · 3/3 aboard · 3/6 safe · 1 trips",
+    "timestamp": "2026-10-04T10:40:19.454Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791110139415"
+  },
+  {
+    "level": "info",
+    "message": "[Smoke] CAMP · final delivery passed · 0/3 aboard · 6/6 safe · 2 trips",
+    "timestamp": "2026-10-04T10:41:09.028Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791110139415"
+  },
+  {
+    "level": "info",
+    "message": "[Smoke] Complete Level 2 acceptance passed · 2 treated · 150 coins donated · 60 fps average · 163 draw calls · 352406 triangles · six visible SAFE characters + driver",
+    "timestamp": "2026-10-04T10:41:09.034Z",
+    "url": "http://127.0.0.1:5173/tests/browser-smoke.ts?t=1791110139415"
+  }
+]

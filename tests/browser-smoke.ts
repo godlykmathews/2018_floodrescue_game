@@ -147,14 +147,16 @@ export function runBrowserSmoke(game: Game) {
       if (!stage) {
         require(fourthPassengerRejected, 'fourth passenger rejection was not tested');
         require(mission.phase === 'complete' && mission.safeCount === 6 && mission.trips === 2, 'mission did not finish with six people in two trips');
+        require(game.supplies.treated === 2, 'both injured people must receive first aid before boarding');
+        require(game.supplies.donated > 0 && game.supplies.coins === 0, 'recovered coins must be donated at camp');
         require(mission.survivors.every(person => person.state === 'SAFE' && visibleInScene(person.character)), 'six SAFE characters must remain visible in the scene');
         release(); finished = true; status.dataset.result = 'pass';
         const fps = Math.round(frames * 1000 / (now - begun));
-        status.textContent += `\nPASS · 6 safe · 2 trips · ${fps} FPS`;
-        console.info(`[Smoke] Complete Level 2 acceptance passed · ${fps} fps average · ${game.renderer.info.render.calls} draw calls · ${game.renderer.info.render.triangles} triangles · six visible SAFE characters + driver`);
+        status.textContent += `\nPASS · 6 safe · 2 treated · ${game.supplies.donated} donated · 2 trips · ${fps} FPS`;
+        console.info(`[Smoke] Complete Level 2 acceptance passed · 2 treated · ${game.supplies.donated} coins donated · ${fps} fps average · ${game.renderer.info.render.calls} draw calls · ${game.renderer.info.render.triangles} triangles · six visible SAFE characters + driver`);
         return;
       }
-      if (mission.phase === 'boarding' || mission.phase === 'unloading') {
+      if (mission.phase === 'treating' || mission.phase === 'boarding' || mission.phase === 'unloading') {
         release(); requestAnimationFrame(loop); return;
       }
       if (waypointIndex < stage.route.length) {
@@ -170,8 +172,10 @@ export function runBrowserSmoke(game: Game) {
           const person = mission.nearestSurvivor;
           require(person && person.locationId === stage.site, `${stage.label}: nearest survivor is at the wrong site`);
           require(getRescueCondition(boat, person.position) === 'ready', `${stage.label}: dock approach does not allow a safe rescue`);
+          const needsAid = person.needsAid;
           release(); interact();
-          require(person.state === 'BOARDING' && game.mission.phase === 'boarding', `${stage.label}: E did not start boarding`);
+          require(needsAid ? game.mission.phase === 'treating' && game.supplies.treatmentKit.visible
+            : person.state === 'BOARDING' && game.mission.phase === 'boarding', `${stage.label}: E did not start first aid or boarding`);
         }
       } else if (stage.action === 'full') {
         const waiting = mission.nearestSurvivor;

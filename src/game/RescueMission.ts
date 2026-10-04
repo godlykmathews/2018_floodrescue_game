@@ -4,8 +4,9 @@ import { Survivor } from './Survivor';
 import { PassengerManager } from './PassengerManager';
 import type { HUDState } from './UI';
 import type { BoatController } from './BoatController';
+import type { AidSupplies } from './AidSupplies';
 
-export type MissionPhase = 'search' | 'boarding' | 'return' | 'unloading' | 'complete' | 'failed';
+export type MissionPhase = 'search' | 'treating' | 'boarding' | 'return' | 'unloading' | 'complete' | 'failed';
 export type RescueCondition = 'far' | 'ahead' | 'fast' | 'align' | 'ready';
 const facingYaw = (from: Vector3, to: Vector3) => Math.atan2(from.x - to.x, from.z - to.z);
 const blendYaw = (from: number, to: number, t: number) => from + Math.atan2(Math.sin(to - from), Math.cos(to - from)) * t;
@@ -39,7 +40,9 @@ export class RescueMission {
   private edge = new Vector3();
   private dock = new Vector3(24, 0.9, 23.1);
   private fromYaw = 0;
-  constructor(readonly boat: Boat, people: Survivor | Survivor[]) {
+  private notice = '';
+  private noticeTime = 0;
+  constructor(readonly boat: Boat, people: Survivor | Survivor[], readonly supplies?: AidSupplies) {
     this.survivors = Array.isArray(people) ? people : [people];
     this.survivor = this.survivors[0];
     this.passengers = new PassengerManager(boat.seats);
@@ -58,11 +61,19 @@ export class RescueMission {
   }
   get target() {
     const nearest = this.nearestSurvivor;
-    return this.passengers.full || !nearest || (this.passengers.count > 0 && this.campDistance < 9)
-      ? this.campPosition : nearest.position;
+    if (this.passengers.full || !nearest || ((this.passengers.count > 0 || (this.supplies?.coins ?? 0) > 0) && this.campDistance < 9)) return this.campPosition;
+    if (nearest.needsAid && this.supplies && this.supplies.kits === 0) {
+      return this.supplies.nearestKit(this.boat.controller.position) ?? nearest.position;
+    }
+    return nearest.position;
+  }
+  get targetKind(): 'survivor' | 'camp' | 'kit' {
+    if (this.target === this.campPosition) return 'camp';
+    return this.target === this.nearestSurvivor?.position ? 'survivor' : 'kit';
   }
   get distance() { return this.horizontalDistance(this.target); }
   get campDistance() { return this.horizontalDistance(this.campPosition); }
+  get canDonate() { return (this.supplies?.coins ?? 0) > 0 && this.campDistance < 4.2 && this.boat.controller.speed < 1.25; }
   get canUnload() {
     if (!this.passengers.count || this.campDistance >= 4.2 || this.boat.controller.speed >= 1.25) return false;
     const edge = this.dockEdge();
@@ -78,17 +89,32 @@ export class RescueMission {
   }
   private horizontalDistance(target: Vector3) { return Math.hypot(this.boat.controller.position.x - target.x, this.boat.controller.position.z - target.z); }
   private lockBoat() { this.boat.controller.locked = true; this.boat.controller.velocity.set(0, 0, 0); this.boat.controller.turnVelocity = 0; }
+  notify(message: string) { this.notice = message; this.noticeTime = 3; }
+  private donate() {
+    const amount = this.supplies?.donate() ?? 0;
+    if (amount) this.notify(`${amount} COINS DONATED · CAMP SUPPLIES FUNDED`);
+  }
 
   interact() {
-    if (['boarding', 'unloading', 'complete', 'failed'].includes(this.phase)) return false;
+    if (['treating', 'boarding', 'unloading', 'complete', 'failed'].includes(this.phase)) return false;
     if (this.canUnload) {
+      this.donate();
       this.phase = 'unloading'; this.lockBoat();
       this.unloadQueue = [...this.passengers.occupants];
       this.startDisembarking();
       return true;
     }
+    if (this.canDonate) { this.donate(); return true; }
     const person = this.nearestSurvivor;
     if (!person || this.passengers.full || getRescueCondition(this.boat.controller, person.position) !== 'ready') return false;
+    if (person.needsAid) {
+      if (!this.supplies?.kits) { this.notify('FIRST AID KIT NEEDED · FOLLOW THE MEDICAL MARKER'); return false; }
+      this.phase = 'treating'; this.active = person; this.transferTime = 0; this.lockBoat();
+      this.boat.root.updateMatrixWorld(true);
+      this.from.copy(this.boat.visual.localToWorld(new Vector3(0, 0.7, -1.7)));
+      this.supplies.treatmentKit.position.copy(this.from); this.supplies.treatmentKit.visible = true;
+      return true;
+    }
     if (this.passengers.reserve(person) === null) return false;
     person.state = 'BOARDING'; this.active = person;
     this.phase = 'boarding'; this.transferTime = 0; this.lockBoat();
@@ -117,11 +143,29 @@ export class RescueMission {
     this.edge.copy(this.dockEdge());
   }
   update(dt: number) {
-    if (this.phase !== 'complete' && this.phase !== 'failed') this.missionTime += dt;
+    if (this.phase === 'complete' || this.phase === 'failed') return;
+    this.noticeTime = Math.max(0, this.noticeTime - dt);
+    this.missionTime += dt;
     this.survivors.forEach(person => person.update(dt));
     this.boat.driver?.update(dt);
     if (!this.active) return;
     this.transferTime += dt;
+    if (this.phase === 'treating') {
+      const person = this.active;
+      const progress = Math.min(this.transferTime / 1.6, 1);
+      person.character.getWorldPosition(this.to); this.to.y += 1.2;
+      const kit = this.supplies!.treatmentKit;
+      kit.position.lerpVectors(this.from, this.to, MathUtils.smoothstep(progress, 0, 1));
+      kit.position.y += Math.sin(progress * Math.PI) * 0.3;
+      if (progress === 1) {
+        if (this.supplies!.useKit() && person.treat()) {
+          this.supplies!.treated++;
+          this.notify('FIRST AID GIVEN · READY TO BOARD');
+        }
+        kit.visible = false; this.active = null; this.phase = this.passengers.count ? 'return' : 'search'; this.boat.controller.locked = false;
+      }
+      return;
+    }
     const t = Math.min(this.transferTime / 2, 1);
     const person = this.active;
     if (this.phase === 'boarding') {
@@ -182,6 +226,7 @@ export class RescueMission {
   reset() {
     this.phase = 'search'; this.transferTime = 0; this.active = null; this.unloadQueue = [];
     this.trips = 0; this.missionTime = 0; this.integrity = 100;
+    this.noticeTime = 0; this.notice = ''; this.supplies?.reset();
     this.passengers.reset(); this.boat.controller.reset();
     this.survivors.forEach(person => person.reset());
   }
@@ -189,23 +234,33 @@ export class RescueMission {
     let objective = this.passengers.full ? 'Return to relief camp' : 'Rescue remaining survivors';
     if (!this.waiting.length && this.passengers.count) objective = 'Deliver passengers';
     let message = '', ready = false;
-    if (this.phase === 'boarding') message = 'BOARDING';
+    if (this.phase === 'treating') message = 'GIVING FIRST AID';
+    else if (this.phase === 'boarding') message = 'BOARDING';
     else if (this.phase === 'unloading') message = 'DISEMBARKING';
     else if (this.phase === 'complete') { objective = 'All survivors safe'; message = 'MISSION COMPLETE'; }
     else if (this.phase === 'failed') message = 'BOAT DAMAGED';
-    else if (this.passengers.count && this.campDistance < 9) {
-      message = this.boat.controller.speed >= 1.25 ? 'SLOW DOWN' : this.canUnload ? '[ E ]  DISEMBARK PASSENGERS' : '';
-      ready = this.canUnload;
+    else if ((this.passengers.count || (this.supplies?.coins ?? 0)) && this.campDistance < 9) {
+      message = this.boat.controller.speed >= 1.25 ? 'SLOW DOWN'
+        : this.canUnload ? '[ E ]  DISEMBARK PASSENGERS' : this.canDonate ? '[ E ]  DONATE COINS' : '';
+      ready = this.canUnload || this.canDonate;
     } else if (this.passengers.full) message = 'BOAT FULL — RETURN TO CAMP';
     else if (this.nearestSurvivor) {
       const condition = getRescueCondition(this.boat.controller, this.nearestSurvivor.position);
       if (condition === 'fast') message = 'SLOW DOWN';
       if (condition === 'align') message = 'ALIGN THE BOAT';
-      if (condition === 'ready') { message = '[ E ]  RESCUE'; ready = true; }
+      if (condition === 'ready') {
+        const aidNeeded = this.nearestSurvivor.needsAid;
+        ready = !aidNeeded || (this.supplies?.kits ?? 0) > 0;
+        message = aidNeeded ? ready ? '[ E ]  GIVE FIRST AID' : 'FIRST AID KIT NEEDED' : '[ E ]  RESCUE';
+      }
     }
+    if (this.targetKind === 'kit' && this.phase !== 'treating') objective = 'Collect a first aid kit';
     return { objective, detail: `${this.remaining} remaining · ${this.safeCount} / ${this.survivors.length} safe`, message, hint: '', ready,
       rescued: this.passengers.count > 0, completed: this.phase === 'complete', distance: this.distance,
       passengers: this.passengers.count, total: this.survivors.length, safe: this.safeCount, remaining: this.remaining,
-      integrity: this.integrity, time: this.missionTime, trips: this.trips, failed: this.phase === 'failed', targetIsCamp: this.target === this.campPosition };
+      integrity: this.integrity, time: this.missionTime, trips: this.trips, failed: this.phase === 'failed', targetIsCamp: this.target === this.campPosition,
+      kits: this.supplies?.kits, coins: this.supplies?.coins, donated: this.supplies?.donated, treated: this.supplies?.treated,
+      injured: this.survivors.filter(person => person.needsAid).length, notice: this.noticeTime > 0 ? this.notice : '',
+      targetKind: this.targetKind, targetLabel: this.targetKind === 'kit' ? 'FIRST AID' : this.targetKind === 'camp' ? 'RELIEF CAMP' : this.nearestSurvivor?.needsAid ? 'INJURED SURVIVOR' : 'SURVIVORS' };
   }
 }

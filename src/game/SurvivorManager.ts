@@ -79,9 +79,10 @@ export class SurvivorManager {
       if (person.state === 'WAITING') person.character.position.y = person.position.y + height;
     }
   }
-  configure(counts: readonly number[]) {
+  configure(counts: readonly number[], withInjuries = false) {
     this.active = [];
     this.sites.forEach((site, siteIndex) => site.people.forEach((person, index) => {
+      person.configureInjury(withInjuries && ['A-2', 'B-3', 'C-1'].includes(person.id));
       person.reset(); person.root.visible = index < counts[siteIndex];
       if (person.root.visible) this.active.push(person);
     }));

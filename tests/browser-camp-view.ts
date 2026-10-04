@@ -3,11 +3,13 @@ import type { Game } from '../src/game/Game';
 /** Focused render fixture, not a playthrough. Seed a completed first delivery using normal transfers. */
 export function showCampView(game: Game) {
   game.startLevel(2); game.skipIntro();
+  game.supplies.kits = 1; // Render fixture supplies; the smoke test must collect these by driving.
   const boat = game.boat.controller;
   for (const person of game.mission.survivors.slice(0, 3)) {
     boat.position.set(person.position.x, 0, person.position.z + 4);
     boat.yaw = 0; boat.forward.set(0, 0, -1); boat.velocity.set(0, 0, 0);
     game.boat.update(0);
+    if (person.needsAid) { game.mission.interact(); game.mission.update(1.6); }
     if (!game.mission.interact()) throw new Error(`Camp fixture could not board ${person.id}`);
     game.mission.update(2);
   }

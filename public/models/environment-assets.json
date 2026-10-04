@@ -50,6 +50,70 @@
       "sourcePreserved": true,
       "process": "Bake static world transforms; meshoptimizer simplification; preserve UVs/materials; resize/re-encode embedded images for browser delivery.",
       "adjustments": "Convert unsupported specular/glossiness material to nonmetallic rough material, preserving diffuse and normal maps."
+    },
+    {
+      "source": "models/fallen_tree.glb",
+      "runtime": "public/models/flood-fallen-tree.glb",
+      "sourceSha256": "b96aea47ea74a90db2b07a6e57ad4e886a0124c3917f737bca2e90cd02b69be4",
+      "runtimeSha256": "0706f73cdb45dd122898d4184da66278d5d817a1ceacda32af8b3a961fefe4b7",
+      "sourceTriangles": 90515,
+      "runtimeTriangles": 16289,
+      "runtimeBytes": 3188344,
+      "maximumTextureSize": 1024,
+      "sourcePreserved": true,
+      "process": "Bake static world transforms; simplify with meshoptimizer while preserving UVs/materials; resize embedded textures to 1024px WebP with EXT_texture_webp. No source animations exist in these models.",
+      "adjustments": "Horizontal extent follows X; runtime lowers vertical scale to 0.4 and submerges base by 0.55m for floating branches. Conservative XZ footprint drifts together with collider."
+    },
+    {
+      "source": "models/old_rusty_car_2.glb",
+      "runtime": "public/models/flood-rusty-car.glb",
+      "sourceSha256": "f27e497fe7bc896a01ef394494cce10c8f0b058098cf60d62618e9051b6a07bb",
+      "runtimeSha256": "33ae3b3a10e8056b77368c97fa18464577a33a4d0389272e4795677b93e5b1e7",
+      "sourceTriangles": 2514,
+      "runtimeTriangles": 2512,
+      "runtimeBytes": 930792,
+      "maximumTextureSize": 1024,
+      "sourcePreserved": true,
+      "process": "Bake static world transforms; simplify with meshoptimizer while preserving UVs/materials; resize embedded textures to 1024px WebP with EXT_texture_webp. No source animations exist in these models.",
+      "adjustments": "Remove the source display ground plane before measuring car length; preserve the actual vehicle geometry."
+    },
+    {
+      "source": "models/a_boxer_dog.glb",
+      "runtime": "public/models/flood-dog.glb",
+      "sourceSha256": "f5dff1af77eb75ef95e8d68f7995cc125d297905aa5a382719456a2abc950297",
+      "runtimeSha256": "202d01aa4d27cd7f24168092a125ecd218ceb9647fba6fcb98f384404aeef96a",
+      "sourceTriangles": 49999,
+      "runtimeTriangles": 7998,
+      "runtimeBytes": 667760,
+      "maximumTextureSize": 1024,
+      "sourcePreserved": true,
+      "process": "Bake static world transforms; simplify with meshoptimizer while preserving UVs/materials; resize embedded textures to 1024px WebP with EXT_texture_webp. No source animations exist in these models."
+    },
+    {
+      "source": "models/realistic_cat_-_pets_for_your_project.glb",
+      "runtime": "public/models/flood-cat.glb",
+      "sourceSha256": "0210e57e8a4400655ab1aea81f11f6a030a8c2bc4cec327392fad0140c1baa09",
+      "runtimeSha256": "d632223aafd8859120a34244e9ac3d3b1f7a917a1fbe4db64127231e458dfb7a",
+      "sourceTriangles": 66024,
+      "runtimeTriangles": 10982,
+      "runtimeBytes": 1552164,
+      "maximumTextureSize": 1024,
+      "sourcePreserved": true,
+      "process": "Bake static world transforms; simplify with meshoptimizer while preserving UVs/materials; resize embedded textures to 1024px WebP with EXT_texture_webp. No source animations exist in these models.",
+      "adjustments": "Suppress exaggerated emissive eye materials for restrained environmental lighting."
+    },
+    {
+      "source": "models/brown_chicken.glb",
+      "runtime": "public/models/flood-chicken.glb",
+      "sourceSha256": "a4ce1412f94dce886752b149be81086911078f015d036e19fbe756cdd7324c78",
+      "runtimeSha256": "b58ef63fe02e3011b10cd84b4417e63397ddd2b599342ce6fa2d2f820fc637b9",
+      "sourceTriangles": 57027,
+      "runtimeTriangles": 7983,
+      "runtimeBytes": 1165964,
+      "maximumTextureSize": 1024,
+      "sourcePreserved": true,
+      "process": "Bake static world transforms; simplify with meshoptimizer while preserving UVs/materials; resize embedded textures to 1024px WebP with EXT_texture_webp. No source animations exist in these models.",
+      "adjustments": "Convert unsupported specular/glossiness material to rough nonmetallic PBR, preserving original brown diffuse texture and normal map."
     }
   ]
 }

@@ -9,6 +9,11 @@ const TINY_HOUSE = '/models/flood-tiny-house.glb';
 const MANSION = '/models/flood-mansion.glb';
 const HILLS = '/models/flood-hills.glb';
 const LOG = '/models/flood-log.glb';
+const FALLEN_TREE = '/models/flood-fallen-tree.glb';
+const CAR = '/models/flood-rusty-car.glb';
+const DOG = '/models/flood-dog.glb';
+const CAT = '/models/flood-cat.glb';
+const CHICKEN = '/models/flood-chicken.glb';
 const TREE = new URL('../../models/jabami_anime_tree-grass_v1.glb', import.meta.url).href;
 const GRASS = new URL('../../models/grass.glb', import.meta.url).href;
 
@@ -142,17 +147,24 @@ export class World {
       this.root.add(object);
     }
 
-    // Load the scanned log once through the shared cache, then reuse its compact
-    // geometry. Collision and drift still belong to the original hazard groups.
-    for (const item of this.debris.filter(item => item.object.name.startsWith('FLOATING_LOG_'))) {
+    // Fallen trees share the same bounded drift/collision pool as the scanned
+    // logs. Their branches stay within a conservative footprint, away from docks.
+    for (const item of this.debris.filter(item => /FLOATING_(LOG|TREE)_/.test(item.object.name))) {
+      const fallenTree = item.object.name.startsWith('FLOATING_TREE_');
       const { object } = await loader.loadModel({
-        path: LOG, size: item.halfWidth * 2, sizeAxis: 'x', position: [0, -0.10, 0],
+        path: fallenTree ? FALLEN_TREE : LOG, size: item.halfWidth * 2, sizeAxis: 'x',
+        position: [0, fallenTree ? -0.55 : -0.10, 0],
         fallback: fallbackLog,
       });
+      // The supplied fallen trunk has high, upturned branches. Lower its profile
+      // so the trunk sits in the flood and those branches break the surface.
+      if (fallenTree) object.scale.y = 0.4;
       item.object.traverse(child => { if (child instanceof Mesh) child.geometry.dispose(); });
       item.object.clear();
       item.object.add(object);
     }
+    await this.addFloodedCars(loader);
+    await this.addShelteredAnimals(loader);
   }
 
   setDifficulty(level: LevelConfig) {
@@ -210,6 +222,55 @@ export class World {
       minZ: z - item.halfDepth, maxZ: z + item.halfDepth });
   }
 
+  private async addFloodedCars(loader: AssetLoader) {
+    for (const [x, z, rotation] of [[-31, 20, -0.35], [39, 24, 0.4], [-36, -13, Math.PI / 2]]) {
+      const { object } = await loader.loadModel({
+        path: CAR, size: 4.7, sizeAxis: 'max', rotationY: rotation,
+        position: [x, -0.56, z], fallback: fallbackCar,
+      });
+      object.name = 'SUBMERGED_CAR';
+      this.root.add(object);
+      const bounds = new Box3().setFromObject(object);
+      this.colliders.push({ minX: bounds.min.x, maxX: bounds.max.x, minZ: bounds.min.z, maxZ: bounds.max.z });
+    }
+  }
+
+  private async addShelteredAnimals(loader: AssetLoader) {
+    const timber = new MeshStandardMaterial({ color: 0x76644c, roughness: 0.96 });
+    // These fixed, visibly supported porches stay above the waves. Camp's small
+    // eastern extension keeps animals separate from the passenger walking lane.
+    for (const [x, z, width, depth, top] of [[-9.2, 13, 3.1, 2.4, 1.1], [30.6, 25.2, 3.2, 2.4, 0.95], [-45.7, 23, 3, 2.6, 1.1]]) {
+      const shelter = new Group();
+      shelter.name = 'ANIMAL_REFUGE';
+      shelter.position.set(x, 0, z);
+      const deck = new Mesh(new BoxGeometry(width, 0.22, depth), timber);
+      deck.position.y = top - 0.11;
+      deck.castShadow = deck.receiveShadow = true;
+      shelter.add(deck);
+      for (const side of [-1, 1]) for (const end of [-1, 1]) {
+        const support = new Mesh(new CylinderGeometry(0.11, 0.13, top + 0.8, 7), timber);
+        support.position.set(side * (width / 2 - 0.18), (top - 0.8) / 2, end * (depth / 2 - 0.18));
+        shelter.add(support);
+      }
+      this.root.add(shelter);
+      this.colliders.push({ minX: x - width / 2, maxX: x + width / 2, minZ: z - depth / 2, maxZ: z + depth / 2 });
+    }
+    const animals = [
+      { path: DOG, name: 'SHELTERED_DOG', x: -9.2, y: 1.1, z: 13, height: 0.85, yaw: 0 },
+      { path: CAT, name: 'SHELTERED_CAT', x: 30.1, y: 0.95, z: 25, height: 0.45, yaw: -Math.PI / 2 },
+      { path: CHICKEN, name: 'SHELTERED_CHICKEN', x: 31.4, y: 0.95, z: 25.5, height: 0.5, yaw: 0.4 },
+      { path: CHICKEN, name: 'SHELTERED_CHICKEN', x: -45.7, y: 1.1, z: 23, height: 0.5, yaw: -0.8 },
+    ];
+    for (const animal of animals) {
+      const { object } = await loader.loadModel({
+        path: animal.path, size: animal.height, sizeAxis: 'y', rotationY: animal.yaw,
+        position: [animal.x, animal.y, animal.z], fallback: fallbackAnimal,
+      });
+      object.name = animal.name;
+      this.root.add(object);
+    }
+  }
+
   private addUtilities() {
     const poleMaterial = new MeshStandardMaterial({ color: 0x626a65, roughness: 0.94 });
     const wireMaterial = new LineBasicMaterial({ color: 0x394340, transparent: true, opacity: 0.7 });
@@ -250,16 +311,25 @@ export class World {
     const material = new MeshStandardMaterial({ color: 0x574633, roughness: 0.98 });
     const containerMaterial = new MeshStandardMaterial({ color: 0x596f72, roughness: 0.94 });
     const plankMaterial = new MeshStandardMaterial({ color: 0x807158, roughness: 1 });
-    const specs = [[5.5, 15, 2.2, 0], [-3.8, -9, 1.8, 0], [20, 17, 2.4, 0], [-16, 27, 1.9, 0], [8, -32, 2, 0],
-      [7, -2, 1.05, 1], [-25, 12, 2, 2], [-7, 11.5, 1.6, 2], [21, -24, 2.3, 0], [34, 18, 1.1, 1], [-4, 33, 0.95, 1]];
+    const specs = [[6.5, 20, 6.2, 3], [-3.8, -9, 1.8, 0], [20, 17, 2.4, 0], [-16, 27, 1.9, 0], [8, -32, 2, 0],
+      [7, -2, 1.05, 1], [-25, 12, 2, 2], [-7, 11.5, 1.6, 2], [21, -24, 5.4, 3], [34, 18, 1.1, 1], [-4, 33, 0.95, 1]];
     specs.forEach(([x, z, length, kind], index) => {
       const group = new Group();
-      group.name = `FLOATING_${kind === 0 ? 'LOG' : kind === 1 ? 'CONTAINER' : 'WRECKAGE'}_${index}`;
+      group.name = `FLOATING_${kind === 0 ? 'LOG' : kind === 1 ? 'CONTAINER' : kind === 3 ? 'TREE' : 'WRECKAGE'}_${index}`;
       group.position.set(x, 0.08, z);
-      const depth = kind === 0 ? 0.4 : kind === 1 ? 0.8 : 0.9;
-      if (kind === 0) {
+      const depth = kind === 0 ? 0.4 : kind === 1 ? 0.8 : kind === 3 ? length * 0.42 : 0.9;
+      if (kind === 0 || kind === 3) {
         const log = new Mesh(new CylinderGeometry(0.14, 0.2, length, 7), material);
         log.rotation.z = Math.PI / 2; log.castShadow = true; group.add(log);
+        if (kind === 3) {
+          for (const direction of [-1, 1]) {
+            const branch = new Mesh(new CylinderGeometry(0.04, 0.11, length * 0.4, 6), material);
+            branch.rotation.z = direction * 0.65;
+            branch.rotation.x = Math.PI / 2;
+            branch.position.set(direction * length * 0.15, 0.05, direction * depth * 0.18);
+            group.add(branch);
+          }
+        }
       } else {
         const body = new Mesh(new BoxGeometry(length, kind === 1 ? 0.65 : 0.18, depth), kind === 1 ? containerMaterial : plankMaterial);
         body.castShadow = true; group.add(body);
@@ -307,6 +377,33 @@ function fallbackLog() {
   const log = new Mesh(new CylinderGeometry(0.04, 0.045, 1, 9), new MeshStandardMaterial({ color: 0x66503b, roughness: 1 }));
   log.rotation.z = Math.PI / 2;
   return log;
+}
+
+function fallbackCar() {
+  const car = new Group();
+  const metal = new MeshStandardMaterial({ color: 0x796354, roughness: 0.9 });
+  const body = new Mesh(new BoxGeometry(1.8, 0.6, 4.7), metal);
+  body.position.y = 0.5;
+  const cabin = new Mesh(new BoxGeometry(1.55, 0.65, 2.2), metal);
+  cabin.position.y = 1.05;
+  car.add(body, cabin);
+  return car;
+}
+
+function fallbackAnimal() {
+  const animal = new Group();
+  const material = new MeshStandardMaterial({ color: 0x9b8060, roughness: 1 });
+  const body = new Mesh(new BoxGeometry(0.7, 0.38, 0.3), material);
+  body.position.y = 0.5;
+  const head = new Mesh(new BoxGeometry(0.25, 0.3, 0.28), material);
+  head.position.set(0.35, 0.7, 0);
+  animal.add(body, head);
+  for (const x of [-0.24, 0.24]) for (const z of [-0.1, 0.1]) {
+    const leg = new Mesh(new BoxGeometry(0.09, 0.4, 0.09), material);
+    leg.position.set(x, 0.2, z);
+    animal.add(leg);
+  }
+  return animal;
 }
 
 function fallbackHills() {

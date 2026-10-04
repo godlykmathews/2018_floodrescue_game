@@ -22,6 +22,8 @@ kbd { display: inline-grid; place-items: center; min-width: 25px; min-height: 25
 .survivor-summary strong { color: var(--cream); font: 500 24px/.8 'Barlow Condensed', 'Arial Narrow', sans-serif; }
 .survivor-summary i { display: block; align-self: center; width: 2px; height: 2px; background: #b9c9ba; margin: 0 3px; }
 #safe-count { color: var(--mint); }
+.camp-support { margin-top: 10px; color: var(--muted); font-size: 7px; letter-spacing: 1.1px; }
+.camp-support strong { color: var(--amber); font-weight: 500; font-variant-numeric: tabular-nums; }
 .telemetry { text-align: right; }
 .speed-readout { display: flex; justify-content: flex-end; align-items: baseline; gap: 7px; }
 #speed { font: 500 45px/.9 'Barlow Condensed', 'Arial Narrow', sans-serif; font-variant-numeric: tabular-nums; }
@@ -37,8 +39,16 @@ kbd { display: inline-grid; place-items: center; min-width: 25px; min-height: 25
 .integrity-track { width: 52px; height: 2px; background: #ebf0de26; }
 .integrity-track i { display: block; height: 100%; width: 100%; background: var(--mint); transition: width .25s; }
 .integrity-track i.damaged { background: var(--amber); }
+.supply-count { display: flex; justify-content: flex-end; gap: 14px; margin-top: 14px; }
+.supply-count > span { display: inline-flex; align-items: center; gap: 5px; }
+.supply-count i { font: normal 600 13px/1 'DM Sans', Arial, sans-serif; color: var(--mint); }
+.supply-count .coin-count i { color: var(--amber); font-size: 9px; }
+.supply-count strong { font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.supply-count strong.needed { color: var(--amber); }
+.supply-count small { color: var(--muted); font-size: 7px; letter-spacing: 1px; }
 .world-target { --target: var(--amber); position: absolute; z-index: 2; transform: translate(-50%, -100%); display: flex; align-items: center; flex-direction: column; pointer-events: none; white-space: nowrap; text-shadow: 0 2px 8px #102b2b; }
 .world-target.camp-target { --target: var(--mint); }
+.world-target.kit-target { --target: #c8e8bd; }
 .target-glyph { position: relative; display: grid; place-items: center; width: 24px; height: 24px; margin-bottom: 10px; color: var(--target); font: 600 20px 'Barlow Condensed', sans-serif; }
 .target-glyph::before { content: ''; position: absolute; z-index: -1; inset: 2px; transform: rotate(45deg); border: 1px solid var(--target); background: #172e2cb5; }
 .target-label { padding: 5px 7px; background: #172c2bcc; color: var(--target); border-radius: 2px; font-size: 7px; font-weight: 700; letter-spacing: 1.4px; }
@@ -51,6 +61,7 @@ kbd { display: inline-grid; place-items: center; min-width: 25px; min-height: 25
 .context.ready { border-color: #f2c26f75; }
 .context.ready #context-message { color: var(--amber); }
 .context kbd { min-width: 24px; min-height: 24px; color: var(--slate); background: var(--amber); border-color: var(--amber); font-weight: 700; }
+.aid-notice { position: absolute; z-index: 3; left: 50%; bottom: 101px; transform: translateX(-50%); max-width: min(440px, calc(100% - 40px)); padding: 8px 13px; border-radius: 2px; color: var(--mint); background: #142c2cd9; font-size: 9px; line-height: 1.5; letter-spacing: 1.1px; text-align: center; pointer-events: none; }
 .menu-screen { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; padding: clamp(28px, 5vw, 76px); overflow-y: auto; background: linear-gradient(90deg, #071d20f7 0%, #0b252ad6 33%, #102b2b4f 72%, #122c2b20 100%); }
 .menu-home { width: min(580px, 60%); padding: 8px 0 20px; }
 .menu-kicker { display: flex; align-items: center; gap: 9px; font-size: 9px; font-weight: 600; letter-spacing: 2.6px; color: var(--mint); }
@@ -149,6 +160,7 @@ h1 span { display: block; margin-top: 12px; font-size: .67em; letter-spacing: .5
   .menu-home { width: 70%; } .menu-panel { padding-block: 18px; } .level-card { padding: 23px 18px 17px; min-height: 270px; } .help-columns { gap: 32px; } .menu-quote { font-size: 14px; } .level-information { line-height: 1.8; }
 }
 @media (max-width: 600px) {
+  .supply-count { gap: 9px; margin-top: 11px; } .supply-count > span { gap: 3px; } .supply-count small { font-size: 6px; letter-spacing: .7px; } .supply-count strong { font-size: 10px; } .camp-support { max-width: 180px; font-size: 6px; line-height: 1.5; letter-spacing: .8px; } .aid-notice { bottom: 91px; font-size: 8px; }
   .top { inset: 20px 17px auto; gap: 16px; } .mission-objective { padding-left: 9px; max-width: 220px; } .mission-objective p { font-size: 11px; } .mission-objective small { font-size: 7px; } .survivor-summary { font-size: 6px; letter-spacing: .7px; gap: 4px; } .survivor-summary strong { font-size: 21px; } #speed { font-size: 36px; } .passenger-count { flex-wrap: wrap; gap: 5px; max-width: 117px; } .passenger-count small { font-size: 6px; } .integrity { font-size: 6px; gap: 5px; } .integrity-track { width: 35px; } .context { bottom: 25px; padding: 10px 12px; } #context-message { font-size: 9px; letter-spacing: .9px; }
   .menu-screen { padding: 28px 25px; align-items: flex-start; background: linear-gradient(90deg, #071d20f2, #0b252ab0); } .menu-home { width: 100%; margin-block: auto; } h1 { font-size: 85px; margin-top: 24px; } h1 span { font-size: .60em; } .menu-date { margin-top: 22px; } .menu-quote { margin: 21px 0 27px; } .home-actions { width: min(280px, 100%); } .panel-heading { gap: 16px; margin-bottom: 20px; } .panel-heading small { font-size: 7px; } .panel-heading h2 { font-size: 43px; } .back-button { font-size: 8px; } .level-options { grid-template-columns: 1fr; gap: 10px; } .level-card { display: grid; grid-template-columns: 44px 1fr; column-gap: 17px; min-height: 122px; padding: 17px; } .level-number { grid-row: span 3; font-size: 34px; } .level-card strong { font-size: 28px; margin-top: 0; max-width: none; } .level-information { margin: 9px 0; font-size: 7px; } .level-status { font-size: 7px; padding-top: 7px; } .level-footer { flex-direction: column; align-items: stretch; gap: 16px; margin-top: 17px; } .level-footer p { font-size: 10px; } .level-footer .button { min-width: auto; } .help-columns { grid-template-columns: 1fr; gap: 29px; } .control-list > div { min-height: 41px; } .rescue-guide ol { margin-top: 16px; } .intro-card > small { font-size: 8px; } .intro-card h2 { font-size: 49px; } #intro-briefing { font-size: 12px; } .intro-task { font-size: 8px; letter-spacing: 1.2px; } .complete-card h2 { font-size: 62px; }
 }

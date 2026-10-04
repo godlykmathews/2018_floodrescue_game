@@ -15,13 +15,13 @@ export interface LevelConfig {
 
 export const LEVELS: readonly LevelConfig[] = [
   { id: 1, title: 'THE FIRST CALL', difficulty: 'Easy', survivors: 3, counts: [3, 0, 0],
-    briefing: ['Heavy rain has flooded the village.', 'A family is stranded on a nearby house.', 'Reach them before conditions worsen.'],
+    briefing: ['A family is stranded on a nearby house.', 'Collect floating first aid kits for the injured.', 'Rescue the family. Bring recovered coins to camp.'],
     parTime: 240, unlocked: true, currentStrength: 0.12, debrisCount: 3, fogDensity: 0.009, rainMultiplier: 1 },
   { id: 2, title: 'RISING WATER', difficulty: 'Medium', survivors: 6, counts: [2, 1, 3],
-    briefing: ['6 people are still stranded.', 'Your boat can carry only three.', 'Bring everyone home.'],
+    briefing: ['6 people are still stranded. Two need first aid.', 'Your boat can carry only three.', 'Collect supplies and coins. Bring everyone home.'],
     parTime: 420, unlocked: true, currentStrength: 0.3, debrisCount: 7, fogDensity: 0.012, rainMultiplier: 1.1 },
   { id: 3, title: 'AGAINST THE CURRENT', difficulty: 'Hard', survivors: 9, counts: [3, 3, 3],
-    briefing: ['The current is growing stronger.', '9 people are waiting across the village.', 'Keep your boat steady. Leave nobody behind.'],
+    briefing: ['The current is growing stronger.', '9 people are waiting. Three need first aid.', 'Recover supplies. Support the camp. Leave nobody behind.'],
     parTime: 600, unlocked: true, currentStrength: 0.5, debrisCount: 11, fogDensity: 0.016, rainMultiplier: 1.35 },
 ];
 
