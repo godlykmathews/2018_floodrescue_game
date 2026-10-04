@@ -13,6 +13,7 @@ import { Wake } from './Wake';
 import { GameStateManager, type GameState } from './GameStateManager';
 import { LevelManager } from './LevelManager';
 import { AudioManager } from './AudioManager';
+import { IntroVideo } from './IntroVideo';
 
 export class Game {
   readonly scene = new Scene();
@@ -33,6 +34,7 @@ export class Game {
   readonly audio = new AudioManager();
   mission = new RescueMission(this.boat, this.survivors.active);
   readonly ui: UI;
+  readonly introVideo: IntroVideo;
   private projected = new Vector3();
   private current = new Vector3();
   private sun = new DirectionalLight(0xd8e2da, 1.8);
@@ -55,11 +57,12 @@ export class Game {
     this.renderer.toneMappingExposure = 1.18;
     container.append(this.renderer.domElement);
     this.ui = new UI(container, {
-      start: id => this.startLevel(id), resume: () => this.resume(), restart: () => this.restart(),
+      start: id => this.startLevel(id, true), resume: () => this.resume(), restart: () => this.restart(),
       mainMenu: () => this.mainMenu(), nextLevel: () => this.startLevel(this.levels.next?.id ?? 1),
-      toggleAudio: () => { this.ui.setAudio(this.audio.toggle()); },
+      toggleAudio: () => this.toggleAudio(),
       skipIntro: () => this.skipIntro(),
     });
+    this.introVideo = new IntroVideo(container, () => this.finishStoryVideo(), () => this.toggleAudio());
     this.ui.setAudio(this.audio.enabled);
     this.siteMarkers = this.survivors.sites.map(() => {
       const marker = document.createElement('div');
@@ -94,13 +97,24 @@ export class Game {
     });
     addEventListener('keydown', event => {
       if (!this.ready || this.contextLost || this.focusPaused || document.hidden) return;
+      if (this.states.state === 'STORY_VIDEO' && ['Space', 'Escape'].includes(event.code)) {
+        // Space must still activate the focused media control through its native click.
+        if (event.code === 'Space' && event.target instanceof HTMLElement && event.target.closest('button')) return;
+        event.preventDefault();
+        if (!event.repeat) this.introVideo.finish();
+        return;
+      }
       if (event.code === 'Escape' && !event.repeat) {
         event.preventDefault();
         if (this.states.state === 'PAUSED') this.resume();
         else if (this.states.simulating) { this.states.pause(); this.showState(); this.keys.clear(); }
         return;
       }
-      if (this.states.state === 'LEVEL_INTRO' && event.code === 'Space') { event.preventDefault(); this.skipIntro(); return; }
+      if (this.states.state === 'LEVEL_INTRO' && event.code === 'Space') {
+        event.preventDefault();
+        if (!event.repeat) this.skipIntro();
+        return;
+      }
       if (!event.repeat && event.code === 'KeyR' && this.states.state !== 'MAIN_MENU') { this.restart(); return; }
       const isControl = event.target instanceof HTMLElement && event.target.closest('button, input, textarea, select, [contenteditable]');
       if (isControl) return;
@@ -142,12 +156,14 @@ export class Game {
   private refreshPause() {
     this.keys.clear(); this.lastTime = 0;
     const interrupted = this.focusPaused || document.hidden;
+    this.introVideo.setSuspended(this.paused);
     this.audio.setPlaying(this.states.simulating && !this.paused);
     this.ui.setPaused(this.contextLost ? 'graphics' : interrupted && this.states.simulating ? 'focus' : null);
   }
-  startLevel(id: number) {
+  startLevel(id: number, playFilm = false) {
     if (!this.ready) return;
     const level = this.levels.select(id);
+    this.introVideo.stop();
     void this.audio.unlock();
     this.mission.reset();
     this.survivors.configure(level.counts);
@@ -160,9 +176,20 @@ export class Game {
     this.keys.clear(); this.wake.reset(); this.introTime = 0;
     this.boat.update(this.elapsed);
     this.cameraController.overview = false;
-    this.states.transition('LEVEL_INTRO');
+    this.states.transition(playFilm ? 'STORY_VIDEO' : 'LEVEL_INTRO');
     this.showState();
-    this.renderer.domElement.focus();
+    if (playFilm) this.introVideo.start(this.audio.enabled);
+    else this.renderer.domElement.focus();
+  }
+  private toggleAudio() {
+    const enabled = this.audio.toggle();
+    this.ui.setAudio(enabled); this.introVideo.setAudio(enabled);
+  }
+  private finishStoryVideo() {
+    if (this.states.state !== 'STORY_VIDEO') return;
+    this.states.transition('LEVEL_INTRO');
+    this.introTime = 0; this.lastTime = 0; this.keys.clear();
+    this.showState(); this.renderer.domElement.focus();
   }
   skipIntro() {
     if (this.states.state !== 'LEVEL_INTRO') return;
@@ -173,6 +200,7 @@ export class Game {
   restart() { this.startLevel(this.levels.current.id); }
   resume() { this.states.resume(); this.keys.clear(); this.lastTime = 0; this.showState(); this.renderer.domElement.focus(); }
   mainMenu() {
+    this.introVideo.stop();
     this.states.transition('MAIN_MENU'); this.keys.clear(); this.mission.reset(); this.wake.reset();
     this.showState();
   }
@@ -214,7 +242,7 @@ export class Game {
     this.ui.target.dataset.direction = x < innerWidth / 2 ? 'left' : 'right';
   }
   private frame = (now: number) => {
-    if (!this.ready || this.paused) { this.lastTime = 0; return; }
+    if (!this.ready || this.paused || this.states.state === 'STORY_VIDEO') { this.lastTime = 0; return; }
     const dt = this.lastTime ? Math.min((now - this.lastTime) / 1000, .05) : 1 / 60;
     this.lastTime = now;
     if (this.states.state === 'LEVEL_COMPLETE' || this.states.state === 'LEVEL_FAILED') return;

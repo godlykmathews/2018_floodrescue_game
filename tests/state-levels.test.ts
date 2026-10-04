@@ -10,6 +10,43 @@ function playing() {
   return state;
 }
 
+test('story video keeps simulation frozen until the selected level briefing finishes', () => {
+  const state = new GameStateManager();
+  state.transition('STORY_VIDEO');
+  assert.equal(state.state, 'STORY_VIDEO');
+  assert.equal(state.simulating, false);
+  state.pause();
+  state.resume();
+  assert.equal(state.state, 'STORY_VIDEO', 'game pause must not convert a cinematic into gameplay');
+  state.transition('LEVEL_INTRO');
+  assert.equal(state.simulating, false);
+  state.transition('LEVEL_INTRO');
+  assert.equal(state.state, 'LEVEL_INTRO', 'an identical transition remains idempotent');
+  state.transition('PLAYING');
+  assert.equal(state.simulating, true);
+});
+
+test('story video can return to the main menu and replay without starting simulation', () => {
+  const state = new GameStateManager();
+  state.transition('STORY_VIDEO');
+  state.transition('MAIN_MENU');
+  assert.equal(state.state, 'MAIN_MENU');
+  assert.equal(state.simulating, false);
+  state.transition('STORY_VIDEO');
+  assert.equal(state.state, 'STORY_VIDEO');
+  assert.equal(state.simulating, false);
+});
+
+test('story video cannot bypass the briefing or enter gameplay transfer and outcome states', () => {
+  const state = new GameStateManager();
+  state.transition('STORY_VIDEO');
+  for (const destination of ['PLAYING', 'RESCUING', 'UNLOADING', 'PAUSED', 'LEVEL_COMPLETE', 'LEVEL_FAILED'] as const) {
+    assert.throws(() => state.transition(destination), /Invalid game state/);
+    assert.equal(state.state, 'STORY_VIDEO');
+    assert.equal(state.simulating, false);
+  }
+});
+
 test('game opens at the main menu and runs only after its level introduction', () => {
   const state = new GameStateManager();
   assert.equal(state.state, 'MAIN_MENU');

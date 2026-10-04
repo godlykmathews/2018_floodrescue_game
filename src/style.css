@@ -160,3 +160,22 @@ h1 span { display: block; margin-top: 12px; font-size: .67em; letter-spacing: .5
 .secondary-target { opacity: .8; }
 .secondary-target .target-glyph { width: 17px; height: 17px; margin-bottom: 7px; font-size: 14px; }
 .secondary-target .target-label { font-size: 6px; padding: 4px 5px; letter-spacing: 1px; background: #172c2b9c; }
+
+/* Keep the film's subtitles and title cards intact, including its native letterbox. */
+.story-video { position: absolute; inset: 0; z-index: 9; background: #050908; }
+.story-video video { display: block; width: 100%; height: 100%; object-fit: contain; }
+.film-toolbar { position: absolute; inset: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 28px 42px; background: linear-gradient(#000b, transparent); }
+#film-title { color: var(--cream); font-size: 11px; letter-spacing: 2px; white-space: nowrap; }
+#film-title span { color: var(--muted); font-size: 9px; }
+.film-actions { display: flex; align-items: center; gap: 9px; }
+.film-button { min-height: 40px; padding: 11px 15px; border: 1px solid #c9dbcd55; background: #0b1b1bbf; color: var(--cream); font: inherit; font-size: 9px; letter-spacing: 1.2px; cursor: pointer; }
+.film-button:hover { border-color: var(--amber); background: #18302fe8; }
+.film-skip { border-color: #e7c47899; color: var(--amber); }
+.film-skip kbd { margin-left: 10px; font-size: 8px; min-height: 18px; }
+.film-notice { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; padding: 17px 22px; background: #0b1b1be8; color: var(--cream); font-size: 12px; line-height: 1.6; text-align: center; }
+@media (max-width: 700px) {
+  .film-toolbar { padding: 14px 15px 30px; gap: 12px; flex-wrap: wrap; }
+  #film-title { font-size: 9px; } #film-title span { font-size: 8px; }
+  .film-actions { margin-left: auto; gap: 5px; } .film-button { padding: 10px; font-size: 8px; }
+  .film-skip kbd { display: none; }
+}

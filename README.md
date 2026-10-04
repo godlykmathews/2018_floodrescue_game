@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Open the URL printed by Vite. Choose **START RESCUE** for Level 1, or **LEVEL SELECT → RISING WATER → START RESCUE** for the two-trip demonstration. The briefing lasts 4.5 seconds; Space skips it.
+Open the URL printed by Vite. Choose **START RESCUE** for Level 1, or **LEVEL SELECT → RISING WATER → START RESCUE** for the two-trip demonstration. Starting from the menu plays `public/Intro_Video.mp4` in full frame, with its original audio/subtitles. Use **SKIP INTRO**, **Space**, or **Escape** to continue early. Audio follows the session toggle. The film pauses when the tab loses focus, and a missing/unplayable video falls through to the mission. Next Level and Restart bypass the film. The selected level’s briefing follows for 4.5 seconds; Space skips it.
 
 ```sh
 npm test        # Gameplay, loader, state, level, crew, and hazard tests

@@ -30,6 +30,7 @@ export function runBrowserSmoke(game: Game) {
   document.querySelector<HTMLButtonElement>('#level-select-button')!.click();
   document.querySelector<HTMLButtonElement>('[data-level="2"]')!.click();
   document.querySelector<HTMLButtonElement>('#level-start-button')!.click();
+  document.querySelector<HTMLButtonElement>('#skip-video-button')!.click();
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', bubbles: true }));
   window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', bubbles: true }));
 
