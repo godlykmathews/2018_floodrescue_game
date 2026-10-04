@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { Box3, MathUtils, Mesh, Raycaster, Texture, Vector3 } from 'three';
+import { Box3, DoubleSide, MathUtils, Mesh, MeshBasicMaterial, Raycaster, Texture, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { AssetLoader } from '../src/utils/AssetLoader.ts';
 import { BoatController } from '../src/game/BoatController.ts';
@@ -72,6 +72,50 @@ test('the base and its access structures leave existing village houses separate 
       assert.ok(Math.hypot(xGap, zGap) > 0.7,
         `${house.name} at ${house.position.toArray()} must remain clear of the new base`);
     }
+  }
+});
+
+test('real palm trunks meet the water inside their collision footprints after scale and rotation', async () => {
+  const { world } = await village;
+  const palms = world.root.children.filter(object => object.name === 'FLOODED_PALM');
+  assert.equal(palms.length, 5, 'only five scattered palms should remain in the village');
+  world.root.updateMatrixWorld(true);
+  const material = new MeshBasicMaterial({ side: DoubleSide });
+  const ray = new Raycaster();
+  try {
+    for (const palm of palms) {
+      const trunk = palm.getObjectByName('palm_trunk_palm_trunk_0');
+      assert.ok(trunk instanceof Mesh, 'each palm must retain the supplied GLB trunk geometry');
+      const bounds = new Box3().setFromObject(palm);
+      assert.ok(bounds.max.y - bounds.min.y >= 9.9 && bounds.max.y - bounds.min.y <= 14.01,
+        'palm scale should remain within a believable 10–14 metre range');
+      assert.ok(Math.abs(bounds.min.y + 1.2) < 0.01, 'the trunk base should remain submerged at the intended depth');
+      const centre = palm.getWorldPosition(new Vector3());
+      const collider = world.colliders.find(box => Math.abs((box.minX + box.maxX) / 2 - centre.x) < 0.001
+        && Math.abs((box.minZ + box.maxZ) / 2 - centre.z) < 0.001);
+      assert.ok(collider, 'every palm needs a collision footprint at its original placement');
+      // A separate probe material makes back faces hittable without mutating the
+      // cached GLB material shared by other trees or by the running application.
+      const probe = new Mesh(trunk.geometry, material);
+      probe.matrixAutoUpdate = false;
+      probe.matrixWorld.copy(trunk.matrixWorld);
+      const contacts: Vector3[] = [];
+      for (const [x, z] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        ray.set(new Vector3(centre.x + x * 2, 0, centre.z + z * 2), new Vector3(-x, 0, -z));
+        ray.far = 4;
+        const hit = ray.intersectObject(probe)[0];
+        assert.ok(hit, 'horizontal waterline rays through the collider must hit the visible trunk');
+        assert.ok(hit.point.x >= collider.minX - 0.02 && hit.point.x <= collider.maxX + 0.02
+          && hit.point.z >= collider.minZ - 0.02 && hit.point.z <= collider.maxZ + 0.02,
+        'visible waterline trunk surfaces must fit the collision proxy');
+        contacts.push(hit.point);
+      }
+      assert.ok(Math.abs((contacts[0].x + contacts[1].x) / 2 - centre.x) < 0.08
+        && Math.abs((contacts[2].z + contacts[3].z) / 2 - centre.z) < 0.08,
+      'the collision centre must follow the trunk rather than the offset leaning canopy');
+    }
+  } finally {
+    material.dispose();
   }
 });
 

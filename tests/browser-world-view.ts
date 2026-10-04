@@ -21,6 +21,7 @@ export function showWorldView(game: Game, view: string) {
   else if (view === 'animals') boat.position.set(31, 0, 20.8);
   else if (view === 'car') boat.position.set(39, 0, 17);
   else if (view === 'tree') boat.position.set(6.5, 0, 25.5);
+  else if (view === 'palm') boat.position.set(-19, 0, 35);
   else boat.position.set(0, 0, 46);
   boat.yaw = view === 'helipad' ? Math.PI / 2 : view === 'animals' || view === 'car' ? Math.PI : 0;
   boat.forward.set(-Math.sin(boat.yaw), 0, -Math.cos(boat.yaw)); boat.velocity.set(0, 0, 0);

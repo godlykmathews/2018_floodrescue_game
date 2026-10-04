@@ -101,11 +101,11 @@ Recordings are decoded once and reused. Missing files warn clearly and leave the
 
 Original GLBs are preserved in `models/`. The boat's bow originally faces +Z, so its model is rotated by π for the game's −Z forward direction. The operator uses the supplied sitting-man skeleton and seated idle clip. Rescue groups mix farmers and women, with independent standing, seated and log-gripping poses; each level includes women. A mother and child already sheltered at camp are decorative NPCs and do not count toward the mission or passenger capacity.
 
-The playable water now extends to ±88 m (previously ±57 m), with 15 houses, 24 trees and three hills framing the valley. The original central routes remain intact, with outer neighbourhoods to explore. Site B is an anchored scanned log: people hold on in the water, release their grip, and visibly climb into the boat. Broader waves move the boat, floating logs and wakes visually without changing the stable planar boat physics.
+The playable water now extends to ±88 m (previously ±57 m), with 15 houses, 13 trees and three hills framing the valley. Five scattered trees use the supplied `tropical_palm_tree.glb`, mixed with eight original trees. Palms are scaled to 12–14 m and anchored at their actual submerged trunks so their collision footprints stay aligned and existing routes remain clear. The original central routes remain intact, with outer neighbourhoods to explore. Site B is an anchored scanned log: people hold on in the water, release their grip, and visibly climb into the boat. Broader waves move the boat, floating logs and wakes visually without changing the stable planar boat physics.
 
 Large scans have compact runtime derivatives under `public/models/` with reduced geometry and texture sizes; originals remain untouched. This includes the log, hills, mansion, women and mother/child. Tiny-house and driver materials were converted to supported PBR while retaining their textures. Asset normalization refreshes cloned skeleton bounds before sizing the sitting-man rig.
 
-The boat, original house, farmer, tree and grass assets are referenced by Vite; compact derived assets are copied from `public/models/` into the build. Each unique GLB is requested once; instances reuse source textures. A failed asset warns clearly and supplies playable fallback geometry.
+The boat, original house, farmer, tree, palm and grass assets are referenced by Vite; compact derived assets are copied from `public/models/` into the build. Each unique GLB is requested once; instances reuse source textures. A failed asset warns clearly and supplies playable fallback geometry.
 
 ## Browser verification
 
@@ -119,6 +119,6 @@ Development-only test URLs:
 
 `/?camp-view=1` seeds a fixed first-delivery scene for checking camp visibility when the chase camera looks through the canopy. It is a render fixture, not a playthrough; C toggles view and R returns to a normal mission.
 
-`/?world-view=log`, `/?world-view=crew` and `/?world-view=wide` are additional render fixtures for log survivors, the loaded boat and the expanded area. The `aid`, `animals`, `car` and `tree` values focus on the newer interactions and assets. They are not playthroughs; R returns to a normal mission.
+`/?world-view=log`, `/?world-view=crew` and `/?world-view=wide` are additional render fixtures for log survivors, the loaded boat and the expanded area. The `aid`, `animals`, `car`, `tree` and `palm` values focus on the newer interactions and assets. They are not playthroughs; R returns to a normal mission.
 
 These helpers are excluded from production builds. Unit tests also cover all three level populations, the complete nine-person/three-trip mission, restart during every survivor state, failure, cached loading/fallbacks, collision cooldown, fair current, and moving debris bounds.

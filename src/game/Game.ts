@@ -157,7 +157,7 @@ export class Game {
   }
   async start() {
     let loaded = 0;
-    const totalModels = 82 + AidSupplies.MODEL_LOAD_COUNT;
+    const totalModels = 71 + AidSupplies.MODEL_LOAD_COUNT;
     this.loader.onProgress = (name, fraction) => {
       this.ui.setLoading(`${name.replace(/_/g, ' ')} · ${Math.round(fraction * 100)}%`, Math.min(1, (loaded + fraction) / totalModels));
     };

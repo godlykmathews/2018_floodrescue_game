@@ -1,4 +1,4 @@
-import { Box3, BoxGeometry, BufferGeometry, CylinderGeometry, Group, Line, LineBasicMaterial, MathUtils, Mesh, MeshStandardMaterial, Object3D, Vector3 } from 'three';
+import { Box3, BoxGeometry, BufferGeometry, CylinderGeometry, Group, Line, LineBasicMaterial, MathUtils, Mesh, MeshPhysicalMaterial, MeshStandardMaterial, Object3D, Vector3, type Material } from 'three';
 import { AssetLoader } from '../utils/AssetLoader';
 import type { Collider } from './BoatController';
 import type { LevelConfig } from './LevelManager';
@@ -15,6 +15,7 @@ const DOG = '/models/flood-dog.glb';
 const CAT = '/models/flood-cat.glb';
 const CHICKEN = '/models/flood-chicken.glb';
 const TREE = new URL('../../models/jabami_anime_tree-grass_v1.glb', import.meta.url).href;
+const PALM = new URL('../../models/tropical_palm_tree.glb', import.meta.url).href;
 const GRASS = new URL('../../models/grass.glb', import.meta.url).href;
 
 interface FloatingDebris {
@@ -89,19 +90,22 @@ export class World {
       this.colliders.push({ minX: bounds.min.x + 0.35, maxX: bounds.max.x - 0.35, minZ: bounds.min.z + 0.35, maxZ: bounds.max.z - 0.35 });
     }
 
-    const trees = [
-      [-23, 23, 12], [-32, 8, 13], [-28, -10, 11], [-36, -29, 14],
-      [-14, -41, 12], [7, -40, 13], [25, -31, 11], [35, -6, 14],
-      [30, 9, 12], [41, 30, 13], [15, 40, 12], [-11, 35, 11],
-      [-62, 29, 15], [-62, -5, 13], [-63, -46, 16], [-25, -73, 14],
-      [24, -74, 15], [65, -55, 16], [70, -15, 14], [67, 24, 15],
-      [47, 60, 14], [-7, 71, 13], [-53, 57, 15], [5, 54, 12],
+    // Five scattered palms; the remaining eight original trees stay in place.
+    const trees: [number, number, number, boolean][] = [
+      [-23, 23, 12, true], [7, -40, 13, true], [30, 9, 12, true],
+      [-25, -73, 14, true], [47, 60, 14, true],
+      [-32, 8, 13, false], [-14, -41, 12, false], [35, -6, 14, false],
+      [15, 40, 12, false], [-62, -5, 13, false], [24, -74, 15, false],
+      [67, 24, 15, false], [-53, 57, 15, false],
     ];
-    for (const [x, z, height] of trees) {
+    for (const [x, z, height, palm] of trees) {
       const { object } = await loader.loadModel({
-        path: TREE, size: height, sizeAxis: 'y', position: [x, -1.2, z],
+        path: palm ? PALM : TREE, size: palm ? Math.min(height, 14) : height,
+        sizeAxis: 'y', position: [x, -1.2, z],
         rotationY: x * 0.61, fallback: fallbackTree, shadows: false,
       });
+      object.name = palm ? 'FLOODED_PALM' : 'FLOODED_TREE';
+      if (palm) preparePalm(object);
       this.root.add(object);
       // The canopy is deliberately excluded: only the trunk blocks the hull.
       this.colliders.push({ minX: x - 0.45, maxX: x + 0.45, minZ: z - 0.45, maxZ: z + 0.45 });
@@ -346,6 +350,55 @@ export class World {
       if (active) this.colliders.push(collider);
     });
   }
+}
+
+/** Anchor the leaning palm at its flooded trunk, rather than its canopy centre. */
+function preparePalm(object: Object3D) {
+  const trunk = object.getObjectByName('palm_trunk_palm_trunk_0');
+  if (!(trunk instanceof Mesh)) return; // The centred fallback already fits its collider.
+  object.updateMatrixWorld(true);
+  const positions = trunk.geometry.getAttribute('position');
+  const indices = trunk.geometry.index;
+  const waterline = new Box3();
+  const vertices = [new Vector3(), new Vector3(), new Vector3()];
+  const intersection = new Vector3();
+  // Only 128 trunk triangles, evaluated once per instance during loading.
+  for (let face = 0; face < (indices?.count ?? positions.count); face += 3) {
+    for (let corner = 0; corner < 3; corner++) {
+      vertices[corner].fromBufferAttribute(positions, indices ? indices.getX(face + corner) : face + corner)
+        .applyMatrix4(trunk.matrixWorld);
+    }
+    for (let edge = 0; edge < 3; edge++) {
+      const a = vertices[edge], b = vertices[(edge + 1) % 3];
+      if (a.y === 0) waterline.expandByPoint(a);
+      if (a.y * b.y <= 0 && a.y !== b.y) {
+        waterline.expandByPoint(intersection.copy(a).lerp(b, -a.y / (b.y - a.y)));
+      }
+    }
+  }
+  if (!waterline.isEmpty()) {
+    const centre = waterline.getCenter(intersection);
+    for (const content of object.children) {
+      content.position.x += object.position.x - centre.x;
+      content.position.z += object.position.z - centre.z;
+    }
+  }
+  object.traverse(node => {
+    if (!(node instanceof Mesh)) return;
+    const stormMaterial = (source: Material) => {
+      const material = source.clone();
+      if (material instanceof MeshStandardMaterial) {
+        material.emissiveIntensity = 0;
+        material.roughness = 0.8;
+      }
+      if (material instanceof MeshPhysicalMaterial) {
+        material.clearcoat = 0.1;
+        material.clearcoatRoughness = 0.85;
+      }
+      return material;
+    };
+    node.material = Array.isArray(node.material) ? node.material.map(stormMaterial) : stormMaterial(node.material);
+  });
 }
 
 function fallbackHouse() {
