@@ -32,7 +32,7 @@ npm run preview # Serve the production build
 | R | Restart the current level |
 | Escape | Pause / resume |
 
-On mobile or touch screens, hold the four arrow icons at the bottom left to accelerate, reverse and steer. Two fingers can accelerate and steer together; releasing a touch, pausing or switching away clears the held direction.
+On mobile or touch screens, hold the four arrow icons at the bottom left to accelerate, reverse and steer. Two fingers can accelerate and steer together; releasing a touch, pausing or switching away clears the held direction. Tap the highlighted **E / action prompt** to treat or rescue survivors, unload passengers, donate, or switch vehicles when available. While flying, hold **RISE** or **DESCEND** on the right to control altitude (Space / Shift); these buttons appear only for the helicopter.
 
 The boat has momentum and sideways drift. Brake before reaching a rescue point and point the bow toward the waiting people. A rescue needs a distance under 5.4 m, speed under 1.25 m/s, and roughly correct alignment. Hold Space while positioning the boat.
 
@@ -113,7 +113,7 @@ The boat, original house, farmer, tree, palm and grass assets are referenced by 
 
 Development-only test URLs:
 
-- `/?touch-smoke=1`: at a mobile viewport, run the pointer-input check for forward/reverse movement, simultaneous steering, cancellation, pause/focus/restart resets and keyboard coexistence.
+- `/?touch-smoke=1`: at a mobile viewport, run the pointer-input check for forward/reverse movement, simultaneous steering, cancellation, pause/focus/restart resets and keyboard coexistence. It also checks clickable treatment/rescue/unloading and helicopter transfer, rise, descent and return controls using fixed approach positions and the live simulation; this is an input check, not a route-navigation playthrough. `tests/mobile-preview.html` provides portrait and landscape preview frames when device emulation is unavailable.
 
 - `/?smoke=1`: selects Level 2 through its menu, then uses keyboard events and real boat movement to collect three people, attempt a fourth, unload, return, collect the remaining three, and deliver all six in two trips. It also collects supplies using real boat movement, treats both injured survivors, donates recovered coins, and verifies scene visibility, seat parenting and people remaining at camp. A compact status overlay reports PASS/FAIL and average frame rate. Allow about five minutes; keep the tab active.
 - `/?audio-smoke=1`: click RUN AUDIO CHECK to exercise actual recordings, nearby help timing, distance limits, mute/pause and rotor looping in a fixed audio fixture.

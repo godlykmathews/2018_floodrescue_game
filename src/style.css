@@ -63,8 +63,12 @@ kbd { display: inline-grid; place-items: center; min-width: 25px; min-height: 25
 #target-distance:empty { display: none; }
 .world-target.offscreen .target-label::before { content: '◀'; margin-right: 7px; }
 .world-target.offscreen[data-direction='right'] .target-label::before { content: '▶'; }
-.context { position: absolute; left: 50%; bottom: 38px; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 10px; max-width: calc(100% - 32px); min-height: 42px; padding: 11px 17px; border: 1px solid #e0e8d627; border-radius: 3px; color: var(--cream); background: #152c2ce8; pointer-events: none; text-align: center; }
+.context { position: absolute; left: 50%; bottom: 38px; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 10px; max-width: calc(100% - 32px); min-height: 44px; padding: 11px 17px; border: 1px solid #e0e8d627; border-radius: 3px; color: var(--cream); background: #152c2ce8; pointer-events: none; text-align: center; }
 #context-message { font-size: 10px; font-weight: 700; letter-spacing: 1.3px; line-height: 1.5; }
+.context:enabled { pointer-events: auto; touch-action: manipulation; }
+.context:disabled { cursor: default; opacity: 1; }
+.context:enabled:active { background: #33483bea; border-color: var(--amber); }
+.context:focus-visible { outline: 2px solid var(--amber); outline-offset: 4px; }
 .context.ready { border-color: #f2c26f75; }
 .context.ready #context-message { color: var(--amber); }
 .context kbd { min-width: 24px; min-height: 24px; color: var(--slate); background: var(--amber); border-color: var(--amber); font-weight: 700; }
@@ -214,7 +218,7 @@ h1 span { display: block; margin-top: 12px; font-size: .67em; letter-spacing: .5
 }
 
 /* The directional pad appears only on small or touch-capable screens. */
-.mobile-controls { display: none; }
+.mobile-controls, .mobile-flight-controls, .flight-touch-hint { display: none; }
 @media (max-width: 900px), (any-pointer: coarse) {
   .mobile-controls:not([hidden]) {
     position: absolute;
@@ -229,6 +233,24 @@ h1 span { display: block; margin-top: 12px; font-size: .67em; letter-spacing: .5
     user-select: none;
     -webkit-user-select: none;
   }
+  .mobile-flight-controls:not([hidden]) {
+    position: absolute;
+    z-index: 4;
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: 54px;
+    grid-template-rows: repeat(2, 54px);
+    gap: 6px;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .mobile-flight-controls .touch-arrow { width: 54px; height: 54px; align-content: center; gap: 3px; }
+  .mobile-flight-controls .touch-arrow svg { width: 21px; height: 21px; }
+  .mobile-flight-controls .touch-arrow span { font-size: 7px; font-weight: 700; letter-spacing: .5px; pointer-events: none; }
+  #app:has(.mobile-flight-controls:not([hidden])) #flight-keyboard-hint { display: none; }
+  #app:has(.mobile-flight-controls:not([hidden])) .flight-touch-hint { display: inline; }
   .touch-arrow {
     display: grid;
     place-items: center;
@@ -253,10 +275,32 @@ h1 span { display: block; margin-top: 12px; font-size: .67em; letter-spacing: .5
   .touch-down { grid-column: 2; grid-row: 2; }
   .touch-right { grid-column: 3; grid-row: 2; }
 }
-@media (max-width: 600px) {
+@media (max-width: 700px) {
   #app:has(.mobile-controls:not([hidden])) .context { bottom: calc(136px + env(safe-area-inset-bottom)); }
   #app:has(.mobile-controls:not([hidden])) .aid-notice { bottom: calc(196px + env(safe-area-inset-bottom)); }
-  #app:has(.mobile-controls:not([hidden])) .flight-controls { bottom: calc(124px + env(safe-area-inset-bottom)); }
-  #app:has(.mobile-controls:not([hidden])) .game-hud.flying .context { bottom: calc(156px + env(safe-area-inset-bottom)); }
-  #app:has(.mobile-controls:not([hidden])) .game-hud.flying .aid-notice { bottom: calc(216px + env(safe-area-inset-bottom)); }
+  #app:has(.mobile-controls:not([hidden])) .flight-controls { bottom: calc(142px + env(safe-area-inset-bottom)); }
+  #app:has(.mobile-controls:not([hidden])) .game-hud.flying .context { bottom: calc(174px + env(safe-area-inset-bottom)); }
+  #app:has(.mobile-controls:not([hidden])) .game-hud.flying .aid-notice { bottom: calc(234px + env(safe-area-inset-bottom)); }
+}
+
+/* In shallow landscape, keep prompts in the space between the held controls. */
+@media (max-height: 500px) and (orientation: landscape) {
+  #app:has(.mobile-controls:not([hidden])) .context,
+  #app:has(.mobile-controls:not([hidden])) .aid-notice,
+  #app:has(.mobile-controls:not([hidden])) .flight-controls {
+    left: calc(194px + env(safe-area-inset-left));
+    right: calc(16px + env(safe-area-inset-right));
+    width: auto;
+    max-width: none;
+    transform: none;
+    justify-content: center;
+  }
+  #app:has(.mobile-flight-controls:not([hidden])) .context,
+  #app:has(.mobile-flight-controls:not([hidden])) .aid-notice,
+  #app:has(.mobile-flight-controls:not([hidden])) .flight-controls { right: calc(86px + env(safe-area-inset-right)); }
+  #app:has(.mobile-controls:not([hidden])) .game-hud .context,
+  #app:has(.mobile-controls:not([hidden])) .game-hud.flying .context { bottom: calc(40px + env(safe-area-inset-bottom)); }
+  #app:has(.mobile-controls:not([hidden])) .game-hud .aid-notice,
+  #app:has(.mobile-controls:not([hidden])) .game-hud.flying .aid-notice { bottom: calc(100px + env(safe-area-inset-bottom)); }
+  #app:has(.mobile-controls:not([hidden])) .flight-controls { bottom: calc(12px + env(safe-area-inset-bottom)); }
 }

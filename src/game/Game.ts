@@ -77,6 +77,7 @@ export class Game {
       mainMenu: () => this.mainMenu(), nextLevel: () => this.startLevel(this.levels.next?.id ?? 1),
       toggleAudio: () => this.toggleAudio(),
       skipIntro: () => this.skipIntro(),
+      interact: () => { this.interact(); this.renderer.domElement.focus({ preventScroll: true }); },
     });
     this.introVideo = new IntroVideo(container, () => this.finishStoryVideo(), () => this.toggleAudio());
     this.touchControls = new TouchControls(container);
@@ -179,7 +180,7 @@ export class Game {
     this.renderer.setAnimationLoop(this.frame);
   }
   private showState() {
-    this.touchControls.setEnabled(this.states.state === 'PLAYING' && !this.paused);
+    this.touchControls.setEnabled(this.states.state === 'PLAYING' && !this.paused, this.vehicles.active);
     this.audio.setVehicle(this.vehicles.active);
     if (this.states.state !== 'PLAYING') this.suspendSurvivorCalls();
     this.audio.setPlaying(this.states.simulating && !this.paused);
@@ -188,7 +189,7 @@ export class Game {
   }
   private refreshPause() {
     this.keys.clear(); this.lastTime = 0;
-    this.touchControls.setEnabled(this.states.state === 'PLAYING' && !this.paused);
+    this.touchControls.setEnabled(this.states.state === 'PLAYING' && !this.paused, this.vehicles.active);
     const interrupted = this.focusPaused || document.hidden;
     this.introVideo.setSuspended(this.paused);
     if (this.paused) this.suspendSurvivorCalls();
@@ -271,7 +272,7 @@ export class Game {
     this.helicopter.update(this.elapsed, 1, false);
   }
   private interact() {
-    if (this.vehicles.switching) return;
+    if (!this.ready || this.paused || this.states.state !== 'PLAYING' || this.vehicles.switching) return;
     const available = this.states.state === 'PLAYING';
     const condition = this.vehicles.condition(this.mission.passengers.count, available);
     if (condition === 'ready') {
@@ -289,7 +290,7 @@ export class Game {
     if (this.vehicles.switching) return { ...hud, ready: false, message: this.vehicles.destination === 'helicopter' ? 'GOING UP TO THE HELIPAD' : 'RETURNING TO THE BOAT' };
     if (this.vehicles.active === 'helicopter') {
       const flight = this.helicopter.controller;
-      const message = flight.canSwitch ? 'RETURN TO BOAT' : flight.landingAvailable ? 'HOLD SHIFT TO LAND' : flight.padDistance < 8 ? 'Q TO HOVER · ALIGN ABOVE THE H' : 'LAND ON HELIPAD TO SWITCH';
+      const message = flight.canSwitch ? 'RETURN TO BOAT' : flight.landingAvailable ? 'DESCEND TO LAND' : flight.padDistance < 8 ? 'ALIGN ABOVE THE H' : 'LAND ON HELIPAD TO SWITCH';
       return { ...hud, vehicle: 'helicopter', altitude: flight.altitude, objective: 'Scout the flooded village',
         ready: flight.canSwitch, message, targetIsCamp: false, targetKind: 'helipad', targetLabel: 'ROOFTOP HELIPAD',
         distance: flight.position.distanceTo(this.helipad.landingPosition),

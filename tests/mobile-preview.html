@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Mobile rescue controls preview</title>
+<style>
+  body { margin: 16px; color: #f4f1df; background: #132729; font: 13px system-ui; }
+  nav { display: flex; gap: 8px; margin-bottom: 12px; }
+  button { padding: 8px 12px; cursor: pointer; }
+  iframe { display: block; width: 390px; height: 690px; border: 1px solid #536967; }
+</style>
+<nav aria-label="Preview settings">
+  <button id="portrait">Portrait</button><button id="landscape">Landscape</button>
+  <button id="inputs">Test inputs</button><button id="rescue">Rescue view</button><button id="helipad">Helipad view</button>
+</nav>
+<iframe title="Mobile game preview" src="/?touch-smoke=1" allow="autoplay"></iframe>
+<script>
+  const frame = document.querySelector('iframe');
+  document.querySelector('#portrait').onclick = () => { frame.style.width = '390px'; frame.style.height = '690px'; };
+  document.querySelector('#landscape').onclick = () => { frame.style.width = '844px'; frame.style.height = '390px'; };
+  for (const [id, url] of [['inputs', '/?touch-smoke=1'], ['rescue', '/?world-view=aid'], ['helipad', '/?world-view=helipad']]) {
+    document.getElementById(id).onclick = () => { frame.src = url; };
+  }
+</script>
+</html>

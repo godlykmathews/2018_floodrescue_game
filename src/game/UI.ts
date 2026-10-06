@@ -19,6 +19,7 @@ export interface UIActions {
   nextLevel: () => void;
   toggleAudio: () => void;
   skipIntro: () => void;
+  interact: () => void;
 }
 
 /** DOM presentation only. Game owns mission, screen state, audio, and timing. */
@@ -31,6 +32,8 @@ export class UI {
   private currentStatus = '';
   private currentNotice = '';
   private currentResult = '';
+  private interactionReady = false;
+  private interactionPaused = false;
 
   constructor(private container: HTMLElement, private actions: UIActions, levels: readonly LevelConfig[] = LEVELS) {
     container.insertAdjacentHTML('beforeend', `
@@ -42,8 +45,8 @@ export class UI {
         </header>
         <div id="world-target" class="world-target"><div class="target-glyph">!</div><div class="target-label"><span id="target-name">SURVIVORS</span><span id="target-distance"></span></div></div>
         <div id="aid-notice" class="aid-notice hidden" role="status" aria-live="polite"></div>
-        <div id="flight-controls" class="flight-controls hidden"></div>
-        <div id="context" class="context hidden"><kbd id="interaction-key" class="hidden">E</kbd><span id="context-message"></span></div>
+        <div id="flight-controls" class="flight-controls hidden"><span id="flight-keyboard-hint"></span><span class="flight-touch-hint">Arrows move · Hold RISE / DESCEND</span></div>
+        <button id="context" type="button" class="context hidden" aria-keyshortcuts="E" disabled><kbd id="interaction-key" class="hidden" aria-hidden="true">E</kbd><span id="context-message"></span></button>
       </div>
       <section id="main-menu" class="menu-screen" aria-label="Main menu">
         <div id="menu-home" class="menu-home"><div class="menu-kicker"><span class="status-dot"></span> A RESCUE MISSION</div><h1>KERALA<span>FLOOD RESCUE</span></h1><div class="menu-date">AUGUST 2018</div><p class="menu-quote">The roads are gone.<br>The water is still rising.<br>People are waiting.</p><div class="home-actions"><button id="start-button" class="button primary">START RESCUE <span aria-hidden="true">↗</span></button><button id="level-select-button" class="button quiet">LEVEL SELECT <span aria-hidden="true">01 — 03</span></button><button id="how-to-button" class="button quiet">HOW TO PLAY <span aria-hidden="true">+</span></button><button class="button quiet audio-button">AUDIO: ON <span aria-hidden="true">♪</span></button></div></div>
@@ -70,6 +73,17 @@ export class UI {
     this.on('pause-main-button', () => this.actions.mainMenu());
     this.on('complete-main-button', () => this.actions.mainMenu());
     this.on('next-level-button', () => this.actions.nextLevel());
+    this.on('context', () => {
+      if (this.screen !== 'PLAYING' || this.interactionPaused || !this.interactionReady) return;
+      this.interactionReady = false;
+      this.refreshInteraction();
+      this.actions.interact();
+    });
+    this.get('context').addEventListener('keydown', event => {
+      if (event.code !== 'KeyE') return;
+      event.preventDefault(); event.stopPropagation();
+      if (!event.repeat) this.get('context').click();
+    });
     container.querySelectorAll<HTMLButtonElement>('[data-back]').forEach(button => button.addEventListener('click', () => this.showMenuPanel('home')));
     container.querySelectorAll<HTMLButtonElement>('.audio-button').forEach(button => button.addEventListener('click', () => this.actions.toggleAudio()));
     container.addEventListener('keydown', event => this.trapFocus(event));
@@ -123,6 +137,9 @@ export class UI {
     if (level && this.selectedLevel !== level.id) this.selectLevel(level.id);
     const changed = screen !== this.screen;
     this.screen = screen;
+    if (changed) this.interactionReady = false;
+    if (statistics) this.updateInteraction(statistics);
+    else this.refreshInteraction();
     const playing = ['PLAYING', 'RESCUING', 'UNLOADING', 'SWITCHING'].includes(screen);
     this.get('game-hud').classList.toggle('hidden', !playing);
     this.get('main-menu').classList.toggle('hidden', screen !== 'MAIN_MENU');
@@ -159,6 +176,8 @@ export class UI {
   loaded() { this.get('loading').classList.add('hidden'); this.get('main-menu').inert = false; this.get('start-button').focus(); }
   fail(message: string) { this.get('loading').classList.remove('hidden'); this.get('loading-phase').textContent = message; }
   setPaused(reason: 'focus' | 'graphics' | null) {
+    this.interactionPaused = reason !== null;
+    this.refreshInteraction();
     this.get('pause-notice').classList.toggle('hidden', reason === null);
     this.get('pause-title').textContent = reason === 'graphics' ? 'RESTORING THE VIEW…' : 'PAUSED';
     this.get('pause-detail').textContent = reason === 'graphics' ? 'Your mission is paused while the view recovers.' : 'Return to the game to continue.';
@@ -173,7 +192,7 @@ export class UI {
     this.get('passenger-readout').classList.toggle('hidden', flying);
     this.get('boat-integrity').classList.toggle('hidden', flying);
     this.get('flight-controls').classList.toggle('hidden', !flying);
-    this.get('flight-controls').textContent = state.vehicleHint ?? 'W/S fly · A/D turn · Space ↑ · Shift ↓ · Q hover';
+    this.get('flight-keyboard-hint').textContent = state.vehicleHint ?? 'W/S fly · A/D turn · Space ↑ · Shift ↓ · Q hover';
     this.get('speed').textContent = Math.round(speed * 3.6).toString();
     this.get('objective').textContent = state.objective;
     this.get('remaining-count').textContent = String(state.remaining);
@@ -198,10 +217,7 @@ export class UI {
       this.currentNotice = notice;
     }
     this.get('aid-notice').classList.toggle('hidden', !state.notice || state.completed || state.failed);
-    this.get('context-message').textContent = state.message.replace(/^\[\s*E\s*\]\s*/i, '').replace(/^E\b\s*(?:—\s*)?/i, '').replace(/^PRESS E TO\s*/i, '');
-    this.get('interaction-key').classList.toggle('hidden', !state.ready);
-    this.get('context').classList.toggle('ready', state.ready);
-    this.get('context').classList.toggle('hidden', state.completed || state.failed || !state.message);
+    this.updateInteraction(state);
     const targetKind = state.targetKind ?? (state.targetIsCamp ? 'camp' : 'survivor');
     this.target.classList.toggle('camp-target', targetKind === 'camp');
     this.target.classList.toggle('kit-target', targetKind === 'kit');
@@ -213,6 +229,23 @@ export class UI {
       this.get('status-announcer').textContent = state.message;
       this.currentStatus = state.message;
     }
+  }
+
+  private updateInteraction(state: Pick<HUDState, 'ready' | 'message' | 'completed' | 'failed'>) {
+    const message = state.message.replace(/^\[\s*E\s*\]\s*/i, '').replace(/^E\b\s*(?:—\s*)?/i, '').replace(/^PRESS E TO\s*/i, '');
+    const visible = !state.completed && !state.failed && Boolean(message.trim());
+    this.interactionReady = visible && state.ready;
+    this.get('context-message').textContent = message;
+    this.get('context').setAttribute('aria-label', message || 'Interact');
+    this.get('context').classList.toggle('hidden', !visible);
+    this.refreshInteraction();
+  }
+
+  private refreshInteraction() {
+    const enabled = this.screen === 'PLAYING' && !this.interactionPaused && this.interactionReady;
+    (this.get('context') as HTMLButtonElement).disabled = !enabled;
+    this.get('context').classList.toggle('ready', enabled);
+    this.get('interaction-key').classList.toggle('hidden', !enabled);
   }
 
   private showResult(state: HUDState, failed: boolean) {
