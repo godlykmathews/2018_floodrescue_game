@@ -5,6 +5,10 @@ async function boot() {
   try {
     const game = new Game(app);
     await game.start();
+    if (import.meta.env.DEV && new URLSearchParams(location.search).has('touch-smoke')) {
+      const { runBrowserTouch } = await import('../tests/browser-touch');
+      runBrowserTouch(game);
+    }
     if (import.meta.env.DEV && new URLSearchParams(location.search).has('audio-smoke')) {
       const { runBrowserAudio } = await import('../tests/browser-audio');
       runBrowserAudio(game);

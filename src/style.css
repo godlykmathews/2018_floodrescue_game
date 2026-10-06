@@ -212,3 +212,51 @@ h1 span { display: block; margin-top: 12px; font-size: .67em; letter-spacing: .5
   .film-actions { margin-left: auto; gap: 5px; } .film-button { padding: 10px; font-size: 8px; }
   .film-skip kbd { display: none; }
 }
+
+/* The directional pad appears only on small or touch-capable screens. */
+.mobile-controls { display: none; }
+@media (max-width: 900px), (any-pointer: coarse) {
+  .mobile-controls:not([hidden]) {
+    position: absolute;
+    z-index: 4;
+    left: max(16px, env(safe-area-inset-left));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: repeat(3, 50px);
+    grid-template-rows: repeat(2, 50px);
+    gap: 6px;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .touch-arrow {
+    display: grid;
+    place-items: center;
+    width: 50px;
+    height: 50px;
+    padding: 0;
+    border: 1px solid #d2ded35e;
+    border-radius: 5px;
+    color: var(--cream);
+    background: #142a2ce8;
+    box-shadow: 0 2px 9px #071d2038;
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .touch-arrow svg { width: 23px; height: 23px; pointer-events: none; }
+  .touch-arrow[data-pressed='true'] { color: var(--slate); background: var(--amber); border-color: var(--amber); }
+  .touch-up { grid-column: 2; grid-row: 1; }
+  .touch-left { grid-column: 1; grid-row: 2; }
+  .touch-down { grid-column: 2; grid-row: 2; }
+  .touch-right { grid-column: 3; grid-row: 2; }
+}
+@media (max-width: 600px) {
+  #app:has(.mobile-controls:not([hidden])) .context { bottom: calc(136px + env(safe-area-inset-bottom)); }
+  #app:has(.mobile-controls:not([hidden])) .aid-notice { bottom: calc(196px + env(safe-area-inset-bottom)); }
+  #app:has(.mobile-controls:not([hidden])) .flight-controls { bottom: calc(124px + env(safe-area-inset-bottom)); }
+  #app:has(.mobile-controls:not([hidden])) .game-hud.flying .context { bottom: calc(156px + env(safe-area-inset-bottom)); }
+  #app:has(.mobile-controls:not([hidden])) .game-hud.flying .aid-notice { bottom: calc(216px + env(safe-area-inset-bottom)); }
+}

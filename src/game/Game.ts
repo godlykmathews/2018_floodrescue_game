@@ -20,6 +20,7 @@ import { Helicopter } from './Helicopter';
 import { Helipad } from './Helipad';
 import { VehicleTransfer } from './VehicleTransfer';
 import { VehicleCamera } from './VehicleCamera';
+import { TouchControls } from './TouchControls';
 
 export class Game {
   readonly scene = new Scene();
@@ -48,6 +49,7 @@ export class Game {
   mission = new RescueMission(this.boat, this.survivors.active, this.supplies);
   readonly ui: UI;
   readonly introVideo: IntroVideo;
+  private readonly touchControls: TouchControls;
   private projected = new Vector3();
   private current = new Vector3();
   private sun = new DirectionalLight(0xd8e2da, 1.8);
@@ -77,6 +79,7 @@ export class Game {
       skipIntro: () => this.skipIntro(),
     });
     this.introVideo = new IntroVideo(container, () => this.finishStoryVideo(), () => this.toggleAudio());
+    this.touchControls = new TouchControls(container);
     this.ui.setAudio(this.audio.enabled);
     this.siteMarkers = this.survivors.sites.map(() => {
       const marker = document.createElement('div');
@@ -176,6 +179,7 @@ export class Game {
     this.renderer.setAnimationLoop(this.frame);
   }
   private showState() {
+    this.touchControls.setEnabled(this.states.state === 'PLAYING' && !this.paused);
     this.audio.setVehicle(this.vehicles.active);
     if (this.states.state !== 'PLAYING') this.suspendSurvivorCalls();
     this.audio.setPlaying(this.states.simulating && !this.paused);
@@ -184,6 +188,7 @@ export class Game {
   }
   private refreshPause() {
     this.keys.clear(); this.lastTime = 0;
+    this.touchControls.setEnabled(this.states.state === 'PLAYING' && !this.paused);
     const interrupted = this.focusPaused || document.hidden;
     this.introVideo.setSuspended(this.paused);
     if (this.paused) this.suspendSurvivorCalls();
@@ -341,7 +346,7 @@ export class Game {
     if (this.states.state === 'LEVEL_COMPLETE' || this.states.state === 'LEVEL_FAILED') return;
     this.elapsed += dt;
     if (this.states.simulating) {
-      const pressed = (...codes: string[]) => codes.some(code => this.keys.has(code));
+      const pressed = (...codes: string[]) => codes.some(code => this.keys.has(code) || this.touchControls.isPressed(code));
       const throttle = Number(pressed('KeyW', 'ArrowUp')) - Number(pressed('KeyS', 'ArrowDown'));
       const steer = Number(pressed('KeyD', 'ArrowRight')) - Number(pressed('KeyA', 'ArrowLeft'));
       if (this.vehicles.switching) {
